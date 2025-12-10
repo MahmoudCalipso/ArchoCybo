@@ -15,6 +15,7 @@
   <ItemGroup>
     <ProjectReference Include="..\ArchoCybo.Application\ArchoCybo.Application.csproj" />
     <ProjectReference Include="..\ArchoCybo.Domain\ArchoCybo.Domain.csproj" />
+    <ProjectReference Include="..\ArchoCybo.Infrastructure\ArchoCybo.Infrastructure.csproj" />
     <ProjectReference Include="..\ArchoCybo.SharedKernel\ArchoCybo.SharedKernel.csproj" />
   </ItemGroup>
 
