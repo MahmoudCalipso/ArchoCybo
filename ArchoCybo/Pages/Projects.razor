@@ -3,11 +3,15 @@
 @using System.Text.Json
 @using System.Net.Http.Headers
 @using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.AspNetCore.Mvc.RazorPages
 @using MudBlazor
 @using MudBlazor.Services
 @using ArchoCybo.Application.DTOs
 @using ArchoCybo.Shared
 @using ArchoCybo.Services
+@using System.Diagnostics.Metrics
+@using static MudBlazor.CategoryTypes
 @inject HttpClient Http
 @inject NavigationManager Nav
 @inject TokenProvider TokenProvider
@@ -15,7 +19,7 @@
 @inject IDialogService DialogService
 
 <MudContainer MaxWidth="MaxWidth.Large">
-  <MudStack Direction="Row" Justify="Space-between" AlignItems="Center">
+    <MudStack Direction="Row" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
     <MudText Typo="Typo.h4">Projects</MudText>
     <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenCreate">New Project</MudButton>
   </MudStack>
@@ -23,7 +27,15 @@
   <MudPaper Class="pa-4 mt-4">
     <MudTable Items="projects" Dense="true" Hover="true">
       <ToolBarContent>
-        <MudTextField Placeholder="Search..." Adornment="Adornment.Start" AdornmentIcon="Icons.Material.Filled.Search" Value="@search" ValueChanged="@(v => { search = v; Refresh(); })" Immediate="true" />
+                <MudTextField Placeholder="Search..."
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="Icons.Material.Filled.Search"
+                              Value="@search"
+                              ValueChanged="@((string v) => OnSearchChanged(v))"
+                              ValueExpression="() => search"
+                              Immediate="true" />
+
+
       </ToolBarContent>
       <HeaderContent>
         <MudTh>Name</MudTh>
@@ -44,7 +56,7 @@
       </RowTemplate>
     </MudTable>
 
-    <MudStack Direction="Row" AlignItems="Center" Justify="Space-between" Class="mt-2">
+        <MudStack Direction="Row" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mt-2">
       <MudText Typo="Typo.caption">Showing @(((page-1)*pageSize)+1)-@(((page-1)*pageSize)+projects.Count) of @totalCount</MudText>
       <MudStack Direction="Row" Spacing="1">
         <MudButton Disabled="@(page==1)" OnClick="PreviousPage">Previous</MudButton>
@@ -81,7 +93,7 @@
   }
 </MudContainer>
 
-@code {
+    @code {
     string search = string.Empty;
     int page = 1;
     int pageSize = 10;
@@ -233,4 +245,10 @@
         public DateTime CreatedAt { get; set; }
         public DateTime? GeneratedAt { get; set; }
     }
+    void OnSearchChanged(string value)
+    {
+        search = value;
+        Refresh();
+    }
+
 }

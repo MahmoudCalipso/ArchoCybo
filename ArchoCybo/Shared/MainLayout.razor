@@ -3,45 +3,40 @@
 @inject ArchoCybo.Services.TokenProvider TokenProvider
 @inject NavigationManager NavigationManager
 
-<MudThemeProvider Theme="CurrentTheme">
-  <MudLayout>
+<MudThemeProvider Theme="CurrentTheme" />
+
+<MudLayout>
     <MudAppBar Elevation="2" Color="Color.Primary">
-      <MudText Typo="Typo.h6">ArchoCybo</MudText>
-      <MudSpacer />
-
-      <MudIconButton Icon="@(_isDark ? Icons.Material.Filled.DarkMode : Icons.Material.Filled.LightMode)" Color="Color.Inherit" OnClick="ToggleTheme" />
-
-      @if (string.IsNullOrEmpty(TokenProvider.Token))
-      {
-          <MudButton Variant="Variant.Text" Href="/login">Login</MudButton>
-      }
-      else
-      {
-          <MudButton Variant="Variant.Text" OnClick="Logout">Logout</MudButton>
-      }
+        <MudText Typo="Typo.h6">ArchoCybo</MudText>
+        <MudSpacer />
+        <MudIconButton Icon="@(_isDark? Icons.Material.Filled.DarkMode : Icons.Material.Filled.LightMode)" Color="Color.Inherit" OnClick="ToggleTheme" />
+        @if (string.IsNullOrEmpty(TokenProvider.Token))
+        {
+            <MudButton Variant="Variant.Text" Href="/login">Login</MudButton>
+        }
+        else
+        {
+            <MudButton Variant="Variant.Text" OnClick="Logout">Logout</MudButton>
+        }
     </MudAppBar>
-
     <MudDrawer ClipMode="DrawerClipMode.Always" Variant="DrawerVariant.Responsive" Open="true" Elevation="1" Class="mud-theme-background">
-      <MudNavMenu>
-        <MudNavLink Href="/" Match="Microsoft.AspNetCore.Components.Routing.NavLinkMatch.All" Icon="Icons.Material.Filled.Home">Home</MudNavLink>
-        <MudNavLink Href="/database" Icon="Icons.Material.Filled.Storage">Database Explorer</MudNavLink>
-        <MudNavLink Href="/query-builder" Icon="Icons.Material.Filled.Code">Query Builder</MudNavLink>
-        <MudNavLink Href="/projects" Icon="Icons.Material.Filled.Folder">Projects</MudNavLink>
-        <MudNavLink Href="/users" Icon="Icons.Material.Filled.Group">Users</MudNavLink>
-      </MudNavMenu>
+        <MudNavMenu>
+            <MudNavLink Href="/" Match="Microsoft.AspNetCore.Components.Routing.NavLinkMatch.All" Icon="Icons.Material.Filled.Home">Home</MudNavLink>
+            <MudNavLink Href="/database" Icon="Icons.Material.Filled.Storage">Database Explorer</MudNavLink>
+            <MudNavLink Href="/query-builder" Icon="Icons.Material.Filled.Code">Query Builder</MudNavLink>
+            <MudNavLink Href="/projects" Icon="Icons.Material.Filled.Folder">Projects</MudNavLink>
+            <MudNavLink Href="/users" Icon="Icons.Material.Filled.Group">Users</MudNavLink>
+        </MudNavMenu>
     </MudDrawer>
-
     <MudMainContent Class="pa-4">
-      <MudContainer MaxWidth="MaxWidth.False">
-        @Body
-      </MudContainer>
+        <MudContainer MaxWidth="MaxWidth.False">
+            @Body
+        </MudContainer>
     </MudMainContent>
-  </MudLayout>
-</MudThemeProvider>
+</MudLayout>
 
 @code {
     bool _isDark = true;
-
     MudTheme DarkTheme = new MudTheme()
     {
         Palette = new Palette()
@@ -56,7 +51,6 @@
             TextPrimary = "#e0e0e0"
         }
     };
-
     MudTheme LightTheme = new MudTheme()
     {
         Palette = new Palette()
@@ -71,14 +65,11 @@
             TextPrimary = "#222222"
         }
     };
-
     MudTheme CurrentTheme => _isDark ? DarkTheme : LightTheme;
-
     void ToggleTheme()
     {
         _isDark = !_isDark;
     }
-
     void Logout()
     {
         TokenProvider.Token = null;
