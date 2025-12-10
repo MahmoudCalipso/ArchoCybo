@@ -1,0 +1,121 @@
+@page "/database"
+@using System.Net.Http.Json
+@using Microsoft.JSInterop
+@using Microsoft.AspNetCore.SignalR.Client
+@using System.Text.Json
+@inject HttpClient Http
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<MudContainer MaxWidth="MaxWidth.Large">
+    <MudText Typo="Typo.h4">Database Explorer</MudText>
+
+    <MudPaper Class="pa-4">
+        <MudGrid>
+            <MudItem xs="12" md="4">
+                <MudSelect T="string" Label="Entities" Value="@selectedName" ValueChanged="@OnSelectedNameChanged">
+                    @if (entities != null)
+                    {
+                        foreach (var e in entities)
+                        {
+                            <MudSelectItem Value="@e.GetProperty("Name").GetString()">@e.GetProperty("Name").GetString()</MudSelectItem>
+                        }
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" md="8">
+                @if (selectedEntity.HasValue)
+                {
+                    <MudText Typo="Typo.h6">@selectedEntity.Value.GetProperty("Name").GetString()</MudText>
+
+                    <MudTable Dense="true" Hover="true" Class="mt-2">
+                        <HeaderContent>
+                            <MudTh>Name</MudTh>
+                            <MudTh>Type</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            @if (columns != null)
+                            {
+                                foreach (var col in columns)
+                                {
+                                    <MudTr>
+                                        <MudTd>@col.GetProperty("Name").GetString()</MudTd>
+                                        <MudTd>@col.GetProperty("Type").GetString()</MudTd>
+                                    </MudTr>
+                                }
+                            }
+                        </RowTemplate>
+                    </MudTable>
+                }
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    List<JsonElement>? entities;
+    string? selectedName;
+    JsonElement? selectedEntity;
+    List<JsonElement>? columns;
+
+    private HubConnection? hub;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            entities = await Http.GetFromJsonAsync<List<JsonElement>>(Nav.ToAbsoluteUri("api/Metadata/entities"));
+        }
+        catch (Exception ex)
+        {
+            entities = new List<JsonElement>();
+            // optionally show error via JS or a small message; keep simple
+        }
+
+        hub = new HubConnectionBuilder()
+            .WithUrl(Nav.ToAbsoluteUri("/hubs/notifications"))
+            .WithAutomaticReconnect()
+            .Build();
+
+        hub.On<Guid>("ProjectUpdated", async (Guid id) =>
+        {
+            try
+            {
+                entities = await Http.GetFromJsonAsync<List<JsonElement>>(Nav.ToAbsoluteUri("api/Metadata/entities"));
+                StateHasChanged();
+            }
+            catch { }
+        });
+
+        try { await hub.StartAsync(); } catch { }
+    }
+
+    private async Task OnSelectedNameChanged(string name)
+    {
+        selectedName = name;
+        if (string.IsNullOrEmpty(name))
+        {
+            selectedEntity = null;
+            columns = null;
+            return;
+        }
+        selectedEntity = entities?.FirstOrDefault(x => x.GetProperty("Name").GetString() == name);
+        try
+        {
+            columns = await Http.GetFromJsonAsync<List<JsonElement>>(Nav.ToAbsoluteUri($"api/Metadata/entity/{name}/columns"));
+        }
+        catch
+        {
+            columns = null;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hub != null)
+        {
+            try { await hub.StopAsync(); } catch { }
+            await hub.DisposeAsync();
+        }
+    }
+}

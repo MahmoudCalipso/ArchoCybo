@@ -1,0 +1,32 @@
+@page "/login"
+@using System.Net.Http.Json
+@using System.Text.Json
+@inject HttpClient Http
+@inject NavigationManager Nav
+@inject ArchoCybo.Services.TokenProvider TokenProvider
+
+<MudContainer MaxWidth="MaxWidth.ExtraSmall">
+    <MudPaper Class="pa-4">
+        <MudText Typo="Typo.h5">SuperUser Login</MudText>
+        <MudTextField Label="Username" Value="@username" ValueChanged="@( (string v) => username = v )" />
+        <MudTextField Label="Password" Value="@password" ValueChanged="@( (string v) => password = v )" InputType="InputType.Password" />
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OnLogin">Login</MudButton>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    string username = "Mahmoud";
+    string password = "ammar369";
+
+    async Task OnLogin()
+    {
+        var resp = await Http.PostAsJsonAsync("api/auth/login", new { Username = username, Password = password });
+        if (resp.IsSuccessStatusCode)
+        {
+            var j = await resp.Content.ReadFromJsonAsync<JsonElement>();
+            var token = j.GetProperty("token").GetString();
+            TokenProvider.Token = token;
+            Nav.NavigateTo("/");
+        }
+    }
+}

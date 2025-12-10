@@ -1,0 +1,75 @@
+@page "/"
+@using System.Net.Http.Json
+@inject HttpClient Http
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+
+<MudContainer MaxWidth="MaxWidth.False">
+  <MudGrid>
+    <MudItem xs="12" md="4">
+      <MudPaper Class="pa-4">
+        <MudText Typo="Typo.h6">Projects</MudText>
+        <MudText Typo="Typo.h4">@projectsCount</MudText>
+        <MudDivider Class="my-2" />
+        <MudText Typo="Typo.caption">Last generated: @lastGenerated</MudText>
+      </MudPaper>
+    </MudItem>
+    <MudItem xs="12" md="4">
+      <MudPaper Class="pa-4">
+        <MudText Typo="Typo.h6">Users</MudText>
+        <MudText Typo="Typo.h4">@usersCount</MudText>
+      </MudPaper>
+    </MudItem>
+    <MudItem xs="12" md="4">
+      <MudPaper Class="pa-4">
+        <MudText Typo="Typo.h6">Actions</MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/projects">Manage Projects</MudButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="ml-2" Href="/users">Manage Users</MudButton>
+      </MudPaper>
+    </MudItem>
+  </MudGrid>
+</MudContainer>
+
+@code {
+  int projectsCount = 0;
+  int usersCount = 0;
+  string lastGenerated = "-";
+
+  protected override async Task OnInitializedAsync()
+  {
+    try
+    {
+      var projects = await Http.GetFromJsonAsync<List<object>>(Nav.ToAbsoluteUri("api/project"));
+      if (projects != null)
+      {
+        projectsCount = projects.Count;
+      }
+    }
+    catch { }
+
+    try
+    {
+      var users = await Http.GetFromJsonAsync<List<object>>(Nav.ToAbsoluteUri("api/users"));
+      if (users != null)
+      {
+        usersCount = users.Count;
+      }
+    }
+    catch { }
+
+    try
+    {
+      // try to fetch last generated project
+      var projs = await Http.GetFromJsonAsync<List<JsonElement>>(Nav.ToAbsoluteUri("api/project"));
+      if (projs != null && projs.Count > 0)
+      {
+        var last = projs.OrderByDescending(p => p.GetProperty("CreatedAt").GetDateTime()).FirstOrDefault();
+        if (last.ValueKind != JsonValueKind.Undefined && last.TryGetProperty("GeneratedAt", out var ga) && ga.ValueKind == JsonValueKind.String)
+        {
+          lastGenerated = ga.GetString() ?? "-";
+        }
+      }
+    }
+    catch { }
+  }
+}

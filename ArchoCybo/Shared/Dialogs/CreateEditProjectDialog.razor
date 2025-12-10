@@ -1,0 +1,110 @@
+@using System.Net.Http.Json
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Components.Forms
+@using MudBlazor
+@inject HttpClient Http
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudForm @ref="form">
+            <EditForm Model="Model" EditContext="editContext" OnValidSubmit="HandleSubmit">
+                <DataAnnotationsValidator />
+                <MudGrid>
+                    <MudItem xs="12">
+                        <MudTextField For="() => Model.Name" Label="Name" Immediate="true" />
+                        <ValidationMessage For="() => Model.Name" />
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudSelect @bind-Value="Model.DatabaseType" Label="Database Type">
+                            <MudSelectItem Value="DatabaseType.SqlServer">SQL Server</MudSelectItem>
+                            <MudSelectItem Value="DatabaseType.Sqlite">Sqlite</MudSelectItem>
+                            <MudSelectItem Value="DatabaseType.Postgres">Postgres</MudSelectItem>
+                        </MudSelect>
+                        <ValidationMessage For="() => Model.DatabaseType" />
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudTextField For="() => Model.Description" Label="Description" />
+                    </MudItem>
+                </MudGrid>
+            </EditForm>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Text" OnClick="Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Submit">Save</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public CreateProjectModel Model { get; set; } = new CreateProjectModel();
+
+    MudForm? form;
+    EditContext? editContext;
+    ValidationMessageStore? messageStore;
+
+    protected override void OnInitialized()
+    {
+        editContext = new EditContext(Model);
+        messageStore = new ValidationMessageStore(editContext);
+    }
+
+    void Cancel() => MudDialog.Cancel();
+
+    void Submit()
+    {
+        form?.Validate();
+        _ = HandleSubmit();
+    }
+
+    async Task HandleSubmit()
+    {
+        if (editContext == null) return;
+        if (!editContext.Validate()) return;
+
+        try
+        {
+            var dto = new { Name = Model.Name, Description = Model.Description, DatabaseType = Model.DatabaseType.ToString(), DatabaseConnectionJson = (string?)null, UseBaseRoles = false, RepositoryUrl = (string?)null };
+            var resp = await Http.PostAsJsonAsync(Nav.ToAbsoluteUri("api/project"), dto);
+            if (resp.IsSuccessStatusCode)
+            {
+                MudDialog.Close(DialogResult.Ok(true));
+                Snackbar.Add("Project saved", MudBlazor.Severity.Success);
+            }
+            else if (resp.StatusCode == System.Net.HttpStatusCode.BadRequest)
+            {
+                // parse validation errors
+                var j = await resp.Content.ReadFromJsonAsync<Dictionary<string, string[]>>();
+                if (j != null)
+                {
+                    foreach (var kv in j)
+                    {
+                        messageStore?.Add(new FieldIdentifier(Model, kv.Key), kv.Value);
+                    }
+                    editContext.NotifyValidationStateChanged();
+                }
+            }
+            else
+            {
+                var t = await resp.Content.ReadAsStringAsync();
+                Snackbar.Add("Failed: " + t, MudBlazor.Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Error: " + ex.Message, MudBlazor.Severity.Error);
+        }
+    }
+
+    public class CreateProjectModel
+    {
+        [Required]
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public DatabaseType DatabaseType { get; set; } = DatabaseType.SqlServer;
+    }
+
+    public enum DatabaseType { SqlServer, Sqlite, Postgres }
+}

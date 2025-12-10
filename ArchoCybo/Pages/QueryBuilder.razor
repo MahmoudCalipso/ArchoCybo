@@ -1,0 +1,220 @@
+@page "/query-builder"
+@using System.Net.Http.Json
+@using Microsoft.JSInterop
+@using Microsoft.AspNetCore.SignalR.Client
+@using System.Text.Json
+@using ArchoCybo.Application.DTOs
+@inject HttpClient Http
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<MudContainer MaxWidth="MaxWidth.Large">
+    <MudText Typo="Typo.h4">Query Builder</MudText>
+
+    <MudPaper Class="pa-4">
+        <MudGrid>
+            <MudItem xs="12" md="4">
+                <MudSelect T="string" Label="Entity" Value="@SelectedEntity" ValueChanged="@OnSelectedEntityChanged">
+                    @if (entities != null)
+                    {
+                        foreach (var e in entities)
+                        {
+                            <MudSelectItem Value="@e.GetProperty("Name").GetString()">@e.GetProperty("Name").GetString()</MudSelectItem>
+                        }
+                    }
+                </MudSelect>
+
+                <MudStack Direction="Row" Spacing="1" Class="mt-2">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="AddJoin">Add Join</MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="AddWhere">Add Where</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Info" OnClick="SaveQuery">Save Query</MudButton>
+                </MudStack>
+            </MudItem>
+            <MudItem xs="12" md="8">
+                <MudText Typo="Typo.subtitle1">Query</MudText>
+                <MudPaper Class="pa-2" Style="min-height:200px; font-family:monospace; white-space:pre-wrap; background:#0d0d0d; color:#cfcfcf;">
+                    @queryText
+                </MudPaper>
+                <MudStack Direction="Row" Spacing="1" Class="mt-2">
+                    <MudButton OnClick="CopyQuery">Copy</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="RunQuery">Run</MudButton>
+                </MudStack>
+
+                @if (results != null)
+                {
+                    <table class="table table-striped mt-2">
+                        <thead>
+                            <tr>
+                                @if (results.Count > 0)
+                                {
+                                    foreach (var h in results[0].Keys)
+                                    {
+                                        <th>@h</th>
+                                    }
+                                }
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var r in results)
+                            {
+                                <tr>
+                                    @foreach (var v in r.Values)
+                                    {
+                                        <td>@v</td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+
+                @if (!string.IsNullOrEmpty(artifactUrl))
+                {
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="@artifactUrl">Download Artifact</MudButton>
+                }
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    List<JsonElement>? entities;
+    string? selectedEntity;
+    public string? SelectedEntity
+    {
+        get => selectedEntity;
+        set
+        {
+            selectedEntity = value;
+            if (!string.IsNullOrEmpty(selectedEntity))
+            {
+                queryText = $"SELECT * FROM {selectedEntity}";
+            }
+        }
+    }
+
+    string queryText = string.Empty;
+    List<Dictionary<string, object>>? results;
+    string? artifactUrl;
+
+    List<JsonElement>? columns;
+
+    private HubConnection? hub;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Use NavigationManager to build absolute URIs so HttpClient base address mismatches don't break calls
+            entities = await Http.GetFromJsonAsync<List<JsonElement>>(Nav.ToAbsoluteUri("api/Metadata/entities"));
+        }
+        catch (Exception ex)
+        {
+            results = new List<Dictionary<string, object>> { new Dictionary<string, object> { { "Error", "Failed to load entities: " + ex.Message } } };
+        }
+
+        // SignalR connect
+        hub = new HubConnectionBuilder()
+            .WithUrl(Nav.ToAbsoluteUri("/hubs/notifications"))
+            .WithAutomaticReconnect()
+            .Build();
+
+        hub.On<Guid>("ProjectUpdated", async (Guid id) =>
+        {
+            try
+            {
+                entities = await Http.GetFromJsonAsync<List<JsonElement>>(Nav.ToAbsoluteUri("api/Metadata/entities"));
+                StateHasChanged();
+            }
+            catch
+            {
+                // ignore refresh errors
+            }
+        });
+
+        try
+        {
+            await hub.StartAsync();
+        }
+        catch
+        {
+            // ignore hub start failures for now
+        }
+    }
+
+    async Task OnSelectedEntityChanged(string value)
+    {
+        SelectedEntity = value;
+    }
+
+    async Task OnEntityChanged(ChangeEventArgs e)
+    {
+        var name = e?.Value?.ToString();
+        if (string.IsNullOrEmpty(name)) return;
+        SelectedEntity = name;
+        try
+        {
+            columns = await Http.GetFromJsonAsync<List<JsonElement>>(Nav.ToAbsoluteUri($"api/Metadata/entity/{name}/columns"));
+        }
+        catch
+        {
+            columns = null;
+        }
+    }
+
+    void AddJoin()
+    {
+        queryText += "\nJOIN ...";
+    }
+
+    void AddWhere()
+    {
+        queryText += "\nWHERE ...";
+    }
+
+    async Task RunQuery()
+    {
+        var dto = new QueryDto(queryText, null, 30);
+        var resp = await Http.PostAsJsonAsync(Nav.ToAbsoluteUri("api/query/execute"), dto);
+        if (resp.IsSuccessStatusCode)
+        {
+            results = await resp.Content.ReadFromJsonAsync<List<Dictionary<string, object>>>(new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            // read artifact path if any
+            try
+            {
+                var proj = await Http.GetFromJsonAsync<JsonElement>(Nav.ToAbsoluteUri("api/project/" + Guid.Empty.ToString()));
+                if (proj.ValueKind != JsonValueKind.Undefined && proj.TryGetProperty("generationOptions", out var gen) && gen.ValueKind == JsonValueKind.String)
+                {
+                    try { var meta = JsonSerializer.Deserialize<JsonElement>(gen.GetString() ?? "{}"); artifactUrl = meta.TryGetProperty("ArtifactZip", out var az) ? az.GetString() : null; } catch { artifactUrl = null; }
+                }
+            }
+            catch { }
+        }
+        else
+        {
+            // show error
+            var text = await resp.Content.ReadAsStringAsync();
+            results = new List<Dictionary<string, object>> { new Dictionary<string, object> { { "Error", text } } };
+        }
+    }
+
+    async Task CopyQuery()
+    {
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", queryText);
+    }
+
+    async Task SaveQuery()
+    {
+        var createDto = new CreateCustomQueryDto("Saved Query", queryText, Guid.Empty);
+        var resp = await Http.PostAsJsonAsync(Nav.ToAbsoluteUri("api/customquery"), createDto);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hub != null)
+        {
+            try { await hub.StopAsync(); } catch { }
+            await hub.DisposeAsync();
+        }
+    }
+}
