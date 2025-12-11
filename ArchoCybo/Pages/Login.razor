@@ -1,32 +1,80 @@
 @page "/login"
 @using System.Net.Http.Json
 @using System.Text.Json
+@using ArchoCybo.Services
 @inject HttpClient Http
 @inject NavigationManager Nav
-@inject ArchoCybo.Services.TokenProvider TokenProvider
+@inject AuthStateProvider AuthStateProvider
+@inject ISnackbar Snackbar
 
-<MudContainer MaxWidth="MaxWidth.ExtraSmall">
-    <MudPaper Class="pa-4">
-        <MudText Typo="Typo.h5">SuperUser Login</MudText>
-        <MudTextField Label="Username" Value="@username" ValueChanged="@( (string v) => username = v )" />
-        <MudTextField Label="Password" Value="@password" ValueChanged="@( (string v) => password = v )" InputType="InputType.Password" />
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OnLogin">Login</MudButton>
+<MudContainer MaxWidth="MaxWidth.ExtraSmall" Style="margin-top: 100px;">
+    <MudPaper Class="pa-6" Elevation="4">
+        <MudText Typo="Typo.h4" Align="Align.Center" Class="mb-4">ArchoCybo</MudText>
+        <MudText Typo="Typo.h6" Align="Align.Center" Class="mb-6">Sign In</MudText>
+
+        <MudTextField @bind-Value="username" Label="Username" Variant="Variant.Outlined" Class="mb-4" />
+        <MudTextField @bind-Value="password" Label="Password" Variant="Variant.Outlined" InputType="InputType.Password" Class="mb-4" />
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <MudAlert Severity="Severity.Error" Class="mb-4">@errorMessage</MudAlert>
+        }
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" OnClick="OnLogin" Disabled="isLoading">
+            @if (isLoading)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+            }
+            else
+            {
+                <span>Login</span>
+            }
+        </MudButton>
+
+        <MudText Typo="Typo.caption" Align="Align.Center" Class="mt-4">Default: admin / ChangeMe123!</MudText>
     </MudPaper>
 </MudContainer>
 
 @code {
-    string username = "Mahmoud";
-    string password = "ammar369";
+    string username = "admin";
+    string password = "ChangeMe123!";
+    string errorMessage = string.Empty;
+    bool isLoading = false;
 
     async Task OnLogin()
     {
-        var resp = await Http.PostAsJsonAsync("api/auth/login", new { Username = username, Password = password });
-        if (resp.IsSuccessStatusCode)
+        errorMessage = string.Empty;
+        isLoading = true;
+
+        try
         {
-            var j = await resp.Content.ReadFromJsonAsync<JsonElement>();
-            var token = j.GetProperty("token").GetString();
-            TokenProvider.Token = token;
-            Nav.NavigateTo("/");
+            var resp = await Http.PostAsJsonAsync(Nav.ToAbsoluteUri("api/auth/login"), new { Username = username, Password = password });
+
+            if (resp.IsSuccessStatusCode)
+            {
+                var j = await resp.Content.ReadFromJsonAsync<JsonElement>();
+                var token = j.GetProperty("token").GetString();
+
+                if (!string.IsNullOrEmpty(token))
+                {
+                    AuthStateProvider.MarkUserAsAuthenticated(token, username);
+                    Snackbar.Add("Login successful!", Severity.Success);
+                    Nav.NavigateTo("/", true);
+                }
+            }
+            else
+            {
+                errorMessage = "Invalid username or password";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Connection error. Please try again.";
+            Snackbar.Add(errorMessage, Severity.Error);
+        }
+        finally
+        {
+            isLoading = false;
         }
     }
 }

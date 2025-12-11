@@ -1,0 +1,82 @@
+@using MudBlazor
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudTextField @bind-Value="propertyName" Label="Property Name" Variant="Variant.Outlined" Class="mb-3" />
+
+        <MudSelect @bind-Value="propertyType" Label="Type" Variant="Variant.Outlined" Class="mb-3">
+            <MudSelectItem Value="@("string")">String</MudSelectItem>
+            <MudSelectItem Value="@("int")">Int</MudSelectItem>
+            <MudSelectItem Value="@("long")">Long</MudSelectItem>
+            <MudSelectItem Value="@("decimal")">Decimal</MudSelectItem>
+            <MudSelectItem Value="@("bool")">Boolean</MudSelectItem>
+            <MudSelectItem Value="@("DateTime")">DateTime</MudSelectItem>
+            <MudSelectItem Value="@("Guid")">Guid</MudSelectItem>
+        </MudSelect>
+
+        <MudCheckBox @bind-Checked="isNullable" Label="Nullable" Class="mb-3" />
+        <MudCheckBox @bind-Checked="isRequired" Label="Required" Class="mb-3" />
+
+        <MudText Typo="Typo.subtitle2" Class="mb-2">Annotations</MudText>
+        <MudStack Row="true" Spacing="1" Class="mb-2">
+            <MudCheckBox @bind-Checked="addKey" Label="[Key]" Dense="true" />
+            <MudCheckBox @bind-Checked="addRequired" Label="[Required]" Dense="true" />
+            <MudCheckBox @bind-Checked="addMaxLength" Label="[MaxLength]" Dense="true" />
+            <MudCheckBox @bind-Checked="addEmailAddress" Label="[EmailAddress]" Dense="true" />
+        </MudStack>
+
+        @if (addMaxLength)
+        {
+            <MudNumericField @bind-Value="maxLength" Label="Max Length" Variant="Variant.Outlined" Class="mb-3" />
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Add">Add</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public string EntityName { get; set; } = string.Empty;
+
+    string propertyName = string.Empty;
+    string propertyType = "string";
+    bool isNullable = false;
+    bool isRequired = false;
+
+    bool addKey = false;
+    bool addRequired = false;
+    bool addMaxLength = false;
+    bool addEmailAddress = false;
+    int maxLength = 100;
+
+    void Cancel() => MudDialog.Cancel();
+
+    void Add()
+    {
+        if (string.IsNullOrWhiteSpace(propertyName))
+        {
+            Snackbar.Add("Property name is required", Severity.Warning);
+            return;
+        }
+
+        var annotations = new List<string>();
+        if (addKey) annotations.Add("Key");
+        if (addRequired) annotations.Add("Required");
+        if (addMaxLength) annotations.Add($"MaxLength({maxLength})");
+        if (addEmailAddress) annotations.Add("EmailAddress");
+
+        MudDialog.Close(DialogResult.Ok(new
+        {
+            PropertyName = propertyName,
+            PropertyType = propertyType,
+            IsNullable = isNullable,
+            IsRequired = isRequired,
+            Annotations = annotations
+        }));
+
+        Snackbar.Add($"Property '{propertyName}' added", Severity.Success);
+    }
+}

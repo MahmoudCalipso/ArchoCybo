@@ -1,0 +1,68 @@
+@using MudBlazor
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudSelect @bind-Value="relationType" Label="Relation Type" Variant="Variant.Outlined" Class="mb-3">
+            <MudSelectItem Value="@("OneToOne")">One to One</MudSelectItem>
+            <MudSelectItem Value="@("OneToMany")">One to Many</MudSelectItem>
+            <MudSelectItem Value="@("ManyToMany")">Many to Many</MudSelectItem>
+        </MudSelect>
+
+        <MudSelect @bind-Value="targetEntity" Label="Target Entity" Variant="Variant.Outlined" Class="mb-3">
+            @if (AvailableEntities != null)
+            {
+                foreach (var entity in AvailableEntities)
+                {
+                    <MudSelectItem Value="@entity">@entity</MudSelectItem>
+                }
+            }
+        </MudSelect>
+
+        <MudTextField @bind-Value="foreignKey" Label="Foreign Key" Variant="Variant.Outlined" Class="mb-3" />
+        <MudTextField @bind-Value="navigationProperty" Label="Navigation Property" Variant="Variant.Outlined" Class="mb-3" />
+
+        @if (relationType == "ManyToMany")
+        {
+            <MudTextField @bind-Value="joinTable" Label="Join Table Name" Variant="Variant.Outlined" Class="mb-3" />
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Add">Add</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public string SourceEntity { get; set; } = string.Empty;
+    [Parameter] public List<string> AvailableEntities { get; set; } = new();
+
+    string relationType = "OneToMany";
+    string targetEntity = string.Empty;
+    string foreignKey = string.Empty;
+    string navigationProperty = string.Empty;
+    string joinTable = string.Empty;
+
+    void Cancel() => MudDialog.Cancel();
+
+    void Add()
+    {
+        if (string.IsNullOrWhiteSpace(targetEntity))
+        {
+            Snackbar.Add("Target entity is required", Severity.Warning);
+            return;
+        }
+
+        MudDialog.Close(DialogResult.Ok(new
+        {
+            RelationType = relationType,
+            TargetEntity = targetEntity,
+            ForeignKey = foreignKey,
+            NavigationProperty = navigationProperty,
+            JoinTable = joinTable
+        }));
+
+        Snackbar.Add($"Relation added to {targetEntity}", Severity.Success);
+    }
+}

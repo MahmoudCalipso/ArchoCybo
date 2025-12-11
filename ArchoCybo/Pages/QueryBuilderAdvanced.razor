@@ -1,0 +1,359 @@
+@page "/query-builder-advanced"
+@attribute [Authorize]
+@using System.Net.Http.Json
+@using Microsoft.JSInterop
+@using Microsoft.AspNetCore.SignalR.Client
+@using System.Text.Json
+@using ArchoCybo.Application.DTOs
+@using ArchoCybo.Services
+@using Microsoft.AspNetCore.Authorization
+@using System.Net.Http.Headers
+@inject HttpClient Http
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject CodeGenerationService CodeGen
+@inject TokenProvider TokenProvider
+@inject ISnackbar Snackbar
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudText Typo="Typo.h4" Class="mb-4">Advanced Query Builder</MudText>
+
+    <MudGrid>
+        <MudItem xs="12" md="4">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.h6" Class="mb-3">Query Configuration</MudText>
+
+                <MudSelect @bind-Value="selectedEntity" Label="Entity" Variant="Variant.Outlined" Class="mb-3">
+                    @if (entities != null)
+                    {
+                        foreach (var e in entities)
+                        {
+                            <MudSelectItem Value="@e.GetProperty("Name").GetString()">@e.GetProperty("Name").GetString()</MudSelectItem>
+                        }
+                    }
+                </MudSelect>
+
+                <MudDivider Class="my-3" />
+
+                <MudText Typo="Typo.subtitle2" Class="mb-2">Select Columns</MudText>
+                @if (columns != null)
+                {
+                    foreach (var col in columns)
+                    {
+                        var colName = col.GetProperty("Name").GetString();
+                        <MudCheckBox @bind-Checked="@selectedColumns[colName]" Label="@colName" Dense="true" />
+                    }
+                }
+
+                <MudDivider Class="my-3" />
+
+                <MudText Typo="Typo.subtitle2" Class="mb-2">Filters</MudText>
+                @foreach (var filter in filters)
+                {
+                    <MudPaper Class="pa-2 mb-2" Outlined="true">
+                        <MudStack Row="true" Spacing="1">
+                            <MudSelect @bind-Value="filter.Column" Label="Column" Variant="Variant.Outlined" Dense="true">
+                                @if (columns != null)
+                                {
+                                    foreach (var col in columns)
+                                    {
+                                        <MudSelectItem Value="@col.GetProperty("Name").GetString()">@col.GetProperty("Name").GetString()</MudSelectItem>
+                                    }
+                                }
+                            </MudSelect>
+                            <MudSelect @bind-Value="filter.Operator" Label="Operator" Variant="Variant.Outlined" Dense="true">
+                                <MudSelectItem Value="@("=")">=</MudSelectItem>
+                                <MudSelectItem Value="@("!=")">!=</MudSelectItem>
+                                <MudSelectItem Value="@(">")">></MudSelectItem>
+                                <MudSelectItem Value="@("<")"><</MudSelectItem>
+                                <MudSelectItem Value="@("LIKE")">LIKE</MudSelectItem>
+                                <MudSelectItem Value="@("IN")">IN</MudSelectItem>
+                            </MudSelect>
+                            <MudTextField @bind-Value="filter.Value" Label="Value" Variant="Variant.Outlined" Dense="true" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="() => RemoveFilter(filter)" />
+                        </MudStack>
+                    </MudPaper>
+                }
+                <MudButton StartIcon="@Icons.Material.Filled.Add" Variant="Variant.Outlined" Color="Color.Primary" OnClick="AddFilter" Size="Size.Small">Add Filter</MudButton>
+
+                <MudDivider Class="my-3" />
+
+                <MudText Typo="Typo.subtitle2" Class="mb-2">Actions</MudText>
+                <MudStack Spacing="2">
+                    <MudButton Variant="Variant.Filled" Color="Color.Info" OnClick="BuildQuery" FullWidth="true">Build Query</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="RunQuery" FullWidth="true" Disabled="string.IsNullOrEmpty(queryText)">Test Query</MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="CopyQuery" FullWidth="true" Disabled="string.IsNullOrEmpty(queryText)">Copy SQL</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="OpenCodeGenDialog" FullWidth="true" Disabled="string.IsNullOrEmpty(queryText)">Generate Code</MudButton>
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="8">
+            <MudPaper Class="pa-4 mb-3" Elevation="2">
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
+                    <MudText Typo="Typo.h6">Generated SQL</MudText>
+                    <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Color="Color.Primary" OnClick="CopyQuery" Disabled="string.IsNullOrEmpty(queryText)" />
+                </MudStack>
+                <MudPaper Class="pa-3" Style="min-height:150px; font-family:monospace; white-space:pre-wrap; background:#1e1e1e; color:#d4d4d4; overflow-x:auto;">
+                    @if (!string.IsNullOrEmpty(queryText))
+                    {
+                        <code>@queryText</code>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Select an entity and build your query...</MudText>
+                    }
+                </MudPaper>
+            </MudPaper>
+
+            @if (results != null && results.Count > 0)
+            {
+                <MudPaper Class="pa-4" Elevation="2">
+                    <MudText Typo="Typo.h6" Class="mb-3">Query Results (@results.Count rows)</MudText>
+                    <div style="overflow-x: auto;">
+                        <MudTable Items="results" Dense="true" Hover="true" Striped="true" FixedHeader="true" Height="400px">
+                            <HeaderContent>
+                                @if (results.Count > 0)
+                                {
+                                    foreach (var key in results[0].Keys)
+                                    {
+                                        <MudTh>@key</MudTh>
+                                    }
+                                }
+                            </HeaderContent>
+                            <RowTemplate Context="row">
+                                @foreach (var val in row.Values)
+                                {
+                                    <MudTd>@val</MudTd>
+                                }
+                            </RowTemplate>
+                        </MudTable>
+                    </div>
+                </MudPaper>
+            }
+        </MudItem>
+    </MudGrid>
+</MudContainer>
+
+<MudDialog @bind-IsVisible="showCodeGenDialog" Options="dialogOptions">
+    <TitleContent>
+        <MudText Typo="Typo.h6">Generate Full Code</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudTextField @bind-Value="entityName" Label="Entity Name" Variant="Variant.Outlined" Class="mb-3" />
+
+        <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-4">
+            <MudTabPanel Text="DTO">
+                <MudPaper Class="pa-2" Style="max-height:400px; overflow-y:auto; background:#1e1e1e; color:#d4d4d4; font-family:monospace; white-space:pre;">
+                    <code>@generatedDto</code>
+                </MudPaper>
+            </MudTabPanel>
+            <MudTabPanel Text="Repository">
+                <MudPaper Class="pa-2" Style="max-height:400px; overflow-y:auto; background:#1e1e1e; color:#d4d4d4; font-family:monospace; white-space:pre;">
+                    <code>@generatedRepository</code>
+                </MudPaper>
+            </MudTabPanel>
+            <MudTabPanel Text="Service">
+                <MudPaper Class="pa-2" Style="max-height:400px; overflow-y:auto; background:#1e1e1e; color:#d4d4d4; font-family:monospace; white-space:pre;">
+                    <code>@generatedService</code>
+                </MudPaper>
+            </MudTabPanel>
+            <MudTabPanel Text="Controller">
+                <MudPaper Class="pa-2" Style="max-height:400px; overflow-y:auto; background:#1e1e1e; color:#d4d4d4; font-family:monospace; white-space:pre;">
+                    <code>@generatedController</code>
+                </MudPaper>
+            </MudTabPanel>
+        </MudTabs>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="CloseCodeGenDialog">Close</MudButton>
+        <MudButton Color="Color.Primary" OnClick="CopyAllCode">Copy All</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    List<JsonElement>? entities;
+    List<JsonElement>? columns;
+    string? selectedEntity;
+    Dictionary<string, bool> selectedColumns = new();
+    List<FilterItem> filters = new();
+    string queryText = string.Empty;
+    List<Dictionary<string, object>>? results;
+
+    bool showCodeGenDialog = false;
+    string entityName = string.Empty;
+    string generatedDto = string.Empty;
+    string generatedRepository = string.Empty;
+    string generatedService = string.Empty;
+    string generatedController = string.Empty;
+
+    DialogOptions dialogOptions = new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true, CloseButton = true };
+
+    protected override async Task OnInitializedAsync()
+    {
+        AttachToken();
+        await LoadEntities();
+    }
+
+    void AttachToken()
+    {
+        if (!string.IsNullOrEmpty(TokenProvider.Token))
+            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", TokenProvider.Token);
+    }
+
+    async Task LoadEntities()
+    {
+        try
+        {
+            entities = await Http.GetFromJsonAsync<List<JsonElement>>(Nav.ToAbsoluteUri("api/Metadata/entities"));
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Failed to load entities: " + ex.Message, Severity.Error);
+        }
+    }
+
+    async Task OnEntityChanged()
+    {
+        if (string.IsNullOrEmpty(selectedEntity)) return;
+
+        try
+        {
+            columns = await Http.GetFromJsonAsync<List<JsonElement>>(Nav.ToAbsoluteUri($"api/Metadata/entity/{selectedEntity}/columns"));
+            selectedColumns.Clear();
+            if (columns != null)
+            {
+                foreach (var col in columns)
+                {
+                    selectedColumns[col.GetProperty("Name").GetString()!] = true;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Failed to load columns: " + ex.Message, Severity.Error);
+        }
+    }
+
+    void AddFilter()
+    {
+        filters.Add(new FilterItem());
+    }
+
+    void RemoveFilter(FilterItem filter)
+    {
+        filters.Remove(filter);
+    }
+
+    async Task BuildQuery()
+    {
+        if (string.IsNullOrEmpty(selectedEntity))
+        {
+            Snackbar.Add("Please select an entity", Severity.Warning);
+            return;
+        }
+
+        await OnEntityChanged();
+
+        var cols = selectedColumns.Where(x => x.Value).Select(x => x.Key).ToList();
+        if (cols.Count == 0) cols = new List<string> { "*" };
+
+        var query = $"SELECT {string.Join(", ", cols)} FROM {selectedEntity}";
+
+        if (filters.Any(f => !string.IsNullOrEmpty(f.Column)))
+        {
+            var whereConditions = filters
+                .Where(f => !string.IsNullOrEmpty(f.Column))
+                .Select(f => f.Operator == "LIKE"
+                    ? $"{f.Column} LIKE '%{f.Value}%'"
+                    : $"{f.Column} {f.Operator} '{f.Value}'");
+
+            query += "\nWHERE " + string.Join(" AND ", whereConditions);
+        }
+
+        queryText = query;
+        Snackbar.Add("Query built successfully", Severity.Success);
+    }
+
+    async Task RunQuery()
+    {
+        if (string.IsNullOrWhiteSpace(queryText))
+        {
+            Snackbar.Add("Please build a query first", Severity.Warning);
+            return;
+        }
+
+        try
+        {
+            AttachToken();
+            var dto = new QueryDto(queryText, null, 30);
+            var resp = await Http.PostAsJsonAsync(Nav.ToAbsoluteUri("api/query/execute"), dto);
+
+            if (resp.IsSuccessStatusCode)
+            {
+                results = await resp.Content.ReadFromJsonAsync<List<Dictionary<string, object>>>();
+                Snackbar.Add($"Query executed successfully. {results?.Count ?? 0} rows returned.", Severity.Success);
+            }
+            else
+            {
+                var error = await resp.Content.ReadAsStringAsync();
+                Snackbar.Add("Query failed: " + error, Severity.Error);
+                results = null;
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Error executing query: " + ex.Message, Severity.Error);
+            results = null;
+        }
+    }
+
+    async Task CopyQuery()
+    {
+        if (string.IsNullOrEmpty(queryText)) return;
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", queryText);
+        Snackbar.Add("Query copied to clipboard", Severity.Success);
+    }
+
+    void OpenCodeGenDialog()
+    {
+        if (string.IsNullOrEmpty(selectedEntity)) return;
+
+        entityName = selectedEntity;
+        GenerateAllCode();
+        showCodeGenDialog = true;
+    }
+
+    void GenerateAllCode()
+    {
+        var columnInfos = columns?.Select(c => new ColumnInfo
+        {
+            Name = c.GetProperty("Name").GetString() ?? "",
+            Type = c.GetProperty("Type").GetString() ?? ""
+        }).ToList() ?? new List<ColumnInfo>();
+
+        generatedDto = CodeGen.GenerateDto(entityName, columnInfos);
+        generatedRepository = CodeGen.GenerateRepository(entityName);
+        generatedService = CodeGen.GenerateService(entityName);
+        generatedController = CodeGen.GenerateController(entityName);
+    }
+
+    void CloseCodeGenDialog()
+    {
+        showCodeGenDialog = false;
+    }
+
+    async Task CopyAllCode()
+    {
+        var allCode = $"// DTO\n{generatedDto}\n\n// Repository\n{generatedRepository}\n\n// Service\n{generatedService}\n\n// Controller\n{generatedController}";
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", allCode);
+        Snackbar.Add("All code copied to clipboard", Severity.Success);
+    }
+
+    class FilterItem
+    {
+        public string Column { get; set; } = string.Empty;
+        public string Operator { get; set; } = "=";
+        public string Value { get; set; } = string.Empty;
+    }
+}

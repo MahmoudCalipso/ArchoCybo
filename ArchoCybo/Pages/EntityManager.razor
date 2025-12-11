@@ -1,0 +1,266 @@
+@page "/entity-manager"
+@attribute [Authorize]
+@using System.Net.Http.Json
+@using System.Text.Json
+@using Microsoft.AspNetCore.Authorization
+@using System.Net.Http.Headers
+@using ArchoCybo.Services
+@inject HttpClient Http
+@inject NavigationManager Nav
+@inject TokenProvider TokenProvider
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudText Typo="Typo.h4" Class="mb-4">Entity Manager</MudText>
+
+    <MudGrid>
+        <MudItem xs="12" md="3">
+            <MudPaper Class="pa-4" Elevation="2" Style="height:calc(100vh - 200px); overflow-y:auto;">
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
+                    <MudText Typo="Typo.h6">Entities</MudText>
+                    <MudIconButton Icon="@Icons.Material.Filled.Add" Color="Color.Primary" Size="Size.Small" OnClick="OpenCreateEntityDialog" />
+                </MudStack>
+
+                <MudTextField @bind-Value="entitySearch" Placeholder="Search..." Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3" />
+
+                <MudList Clickable="true" Dense="true">
+                    @if (entities != null)
+                    {
+                        foreach (var entity in entities.Where(e => string.IsNullOrEmpty(entitySearch) || e.GetProperty("Name").GetString()!.Contains(entitySearch, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            var name = entity.GetProperty("Name").GetString();
+                            <MudListItem OnClick="() => SelectEntity(name!)" Selected="@(selectedEntityName == name)">
+                                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                                    <MudText Typo="Typo.body2">@name</MudText>
+                                    <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" />
+                                </MudStack>
+                            </MudListItem>
+                        }
+                    }
+                </MudList>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="9">
+            @if (!string.IsNullOrEmpty(selectedEntityName))
+            {
+                <MudPaper Class="pa-4 mb-3" Elevation="2">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
+                        <MudText Typo="Typo.h5">@selectedEntityName</MudText>
+                        <MudStack Row="true" Spacing="2">
+                            <MudButton StartIcon="@Icons.Material.Filled.Add" Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenAddPropertyDialog">Add Property</MudButton>
+                            <MudButton StartIcon="@Icons.Material.Filled.Link" Variant="Variant.Outlined" Color="Color.Info" OnClick="OpenAddRelationDialog">Add Relation</MudButton>
+                            <MudButton StartIcon="@Icons.Material.Filled.Code" Variant="Variant.Outlined" Color="Color.Secondary" OnClick="ViewEntityCode">View Code</MudButton>
+                        </MudStack>
+                    </MudStack>
+
+                    <MudDivider Class="mb-3" />
+
+                    <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true">
+                        <MudTabPanel Text="Properties" Icon="@Icons.Material.Filled.ViewColumn">
+                            <MudTable Items="properties" Dense="true" Hover="true" Class="mt-2">
+                                <HeaderContent>
+                                    <MudTh>Name</MudTh>
+                                    <MudTh>Type</MudTh>
+                                    <MudTh>Nullable</MudTh>
+                                    <MudTh>Annotations</MudTh>
+                                    <MudTh>Actions</MudTh>
+                                </HeaderContent>
+                                <RowTemplate Context="prop">
+                                    <MudTd>@prop.Name</MudTd>
+                                    <MudTd>@prop.Type</MudTd>
+                                    <MudTd><MudIcon Icon="@(prop.IsNullable ? Icons.Material.Filled.Check : Icons.Material.Filled.Close)" Size="Size.Small" /></MudTd>
+                                    <MudTd>
+                                        @if (prop.Annotations.Any())
+                                        {
+                                            <MudChipSet>
+                                                @foreach (var annotation in prop.Annotations)
+                                                {
+                                                    <MudChip Size="Size.Small" Color="Color.Info">@annotation</MudChip>
+                                                }
+                                            </MudChipSet>
+                                        }
+                                    </MudTd>
+                                    <MudTd>
+                                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => EditProperty(prop)" />
+                                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="() => DeleteProperty(prop)" />
+                                    </MudTd>
+                                </RowTemplate>
+                            </MudTable>
+                        </MudTabPanel>
+
+                        <MudTabPanel Text="Relations" Icon="@Icons.Material.Filled.AccountTree">
+                            <MudTable Items="relations" Dense="true" Hover="true" Class="mt-2">
+                                <HeaderContent>
+                                    <MudTh>Type</MudTh>
+                                    <MudTh>Target Entity</MudTh>
+                                    <MudTh>Foreign Key</MudTh>
+                                    <MudTh>Navigation Property</MudTh>
+                                    <MudTh>Actions</MudTh>
+                                </HeaderContent>
+                                <RowTemplate Context="rel">
+                                    <MudTd>
+                                        <MudChip Size="Size.Small" Color="@GetRelationColor(rel.Type)">@rel.Type</MudChip>
+                                    </MudTd>
+                                    <MudTd>@rel.TargetEntity</MudTd>
+                                    <MudTd>@rel.ForeignKey</MudTd>
+                                    <MudTd>@rel.NavigationProperty</MudTd>
+                                    <MudTd>
+                                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="() => DeleteRelation(rel)" />
+                                    </MudTd>
+                                </RowTemplate>
+                            </MudTable>
+                        </MudTabPanel>
+
+                        <MudTabPanel Text="Indexes" Icon="@Icons.Material.Filled.Speed">
+                            <MudText Typo="Typo.body2" Class="mt-2">Index management coming soon...</MudText>
+                        </MudTabPanel>
+                    </MudTabs>
+                </MudPaper>
+            }
+            else
+            {
+                <MudPaper Class="pa-8" Elevation="2" Style="text-align:center;">
+                    <MudIcon Icon="@Icons.Material.Filled.TableView" Size="Size.Large" Color="Color.Default" Class="mb-3" />
+                    <MudText Typo="Typo.h6" Color="Color.Default">Select an entity to view details</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Or create a new entity to get started</MudText>
+                </MudPaper>
+            }
+        </MudItem>
+    </MudGrid>
+</MudContainer>
+
+@code {
+    List<JsonElement>? entities;
+    string entitySearch = string.Empty;
+    string? selectedEntityName;
+    List<PropertyInfo> properties = new();
+    List<RelationInfo> relations = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        AttachToken();
+        await LoadEntities();
+    }
+
+    void AttachToken()
+    {
+        if (!string.IsNullOrEmpty(TokenProvider.Token))
+            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", TokenProvider.Token);
+    }
+
+    async Task LoadEntities()
+    {
+        try
+        {
+            entities = await Http.GetFromJsonAsync<List<JsonElement>>(Nav.ToAbsoluteUri("api/Metadata/entities"));
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Failed to load entities: " + ex.Message, Severity.Error);
+        }
+    }
+
+    async Task SelectEntity(string name)
+    {
+        selectedEntityName = name;
+        await LoadEntityDetails(name);
+    }
+
+    async Task LoadEntityDetails(string name)
+    {
+        try
+        {
+            var columns = await Http.GetFromJsonAsync<List<JsonElement>>(Nav.ToAbsoluteUri($"api/Metadata/entity/{name}/columns"));
+
+            properties = columns?.Select(c => new PropertyInfo
+            {
+                Name = c.GetProperty("Name").GetString() ?? "",
+                Type = c.GetProperty("Type").GetString() ?? "",
+                IsNullable = false,
+                Annotations = new List<string>()
+            }).ToList() ?? new List<PropertyInfo>();
+
+            relations = new List<RelationInfo>();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Failed to load entity details: " + ex.Message, Severity.Error);
+        }
+    }
+
+    void OpenCreateEntityDialog()
+    {
+        var parameters = new DialogParameters { { "Title", "Create New Entity" } };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small };
+        var dialog = DialogService.Show<CreateEntityDialog>("Create Entity", parameters, options);
+    }
+
+    void OpenAddPropertyDialog()
+    {
+        var parameters = new DialogParameters { { "EntityName", selectedEntityName } };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium };
+        var dialog = DialogService.Show<AddPropertyDialog>("Add Property", parameters, options);
+    }
+
+    void OpenAddRelationDialog()
+    {
+        var parameters = new DialogParameters
+        {
+            { "SourceEntity", selectedEntityName },
+            { "AvailableEntities", entities?.Select(e => e.GetProperty("Name").GetString()!).ToList() ?? new List<string>() }
+        };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium };
+        var dialog = DialogService.Show<AddRelationDialog>("Add Relation", parameters, options);
+    }
+
+    void EditProperty(PropertyInfo prop)
+    {
+        Snackbar.Add("Edit property: " + prop.Name, Severity.Info);
+    }
+
+    void DeleteProperty(PropertyInfo prop)
+    {
+        properties.Remove(prop);
+        Snackbar.Add("Property removed: " + prop.Name, Severity.Success);
+    }
+
+    void DeleteRelation(RelationInfo rel)
+    {
+        relations.Remove(rel);
+        Snackbar.Add("Relation removed", Severity.Success);
+    }
+
+    void ViewEntityCode()
+    {
+        Snackbar.Add("View entity code feature coming soon", Severity.Info);
+    }
+
+    Color GetRelationColor(string type)
+    {
+        return type switch
+        {
+            "OneToOne" => Color.Primary,
+            "OneToMany" => Color.Success,
+            "ManyToMany" => Color.Warning,
+            _ => Color.Default
+        };
+    }
+
+    class PropertyInfo
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Type { get; set; } = string.Empty;
+        public bool IsNullable { get; set; }
+        public List<string> Annotations { get; set; } = new();
+    }
+
+    class RelationInfo
+    {
+        public string Type { get; set; } = string.Empty;
+        public string TargetEntity { get; set; } = string.Empty;
+        public string ForeignKey { get; set; } = string.Empty;
+        public string NavigationProperty { get; set; } = string.Empty;
+    }
+}

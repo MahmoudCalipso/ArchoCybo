@@ -1,39 +1,55 @@
 @inherits LayoutComponentBase
 @using MudBlazor
-@inject ArchoCybo.Services.TokenProvider TokenProvider
+@using Microsoft.AspNetCore.Components.Authorization
+@using ArchoCybo.Services
+@inject AuthStateProvider AuthStateProvider
 @inject NavigationManager NavigationManager
 
 <MudThemeProvider Theme="CurrentTheme" />
 
-<MudLayout>
-    <MudAppBar Elevation="2" Color="Color.Primary">
-        <MudText Typo="Typo.h6">ArchoCybo</MudText>
-        <MudSpacer />
-        <MudIconButton Icon="@(_isDark? Icons.Material.Filled.DarkMode : Icons.Material.Filled.LightMode)" Color="Color.Inherit" OnClick="ToggleTheme" />
-        @if (string.IsNullOrEmpty(TokenProvider.Token))
-        {
-            <MudButton Variant="Variant.Text" Href="/login">Login</MudButton>
-        }
-        else
-        {
-            <MudButton Variant="Variant.Text" OnClick="Logout">Logout</MudButton>
-        }
-    </MudAppBar>
-    <MudDrawer ClipMode="DrawerClipMode.Always" Variant="DrawerVariant.Responsive" Open="true" Elevation="1" Class="mud-theme-background">
-        <MudNavMenu>
-            <MudNavLink Href="/" Match="Microsoft.AspNetCore.Components.Routing.NavLinkMatch.All" Icon="Icons.Material.Filled.Home">Home</MudNavLink>
-            <MudNavLink Href="/database" Icon="Icons.Material.Filled.Storage">Database Explorer</MudNavLink>
-            <MudNavLink Href="/query-builder" Icon="Icons.Material.Filled.Code">Query Builder</MudNavLink>
-            <MudNavLink Href="/projects" Icon="Icons.Material.Filled.Folder">Projects</MudNavLink>
-            <MudNavLink Href="/users" Icon="Icons.Material.Filled.Group">Users</MudNavLink>
-        </MudNavMenu>
-    </MudDrawer>
-    <MudMainContent Class="pa-4">
-        <MudContainer MaxWidth="MaxWidth.False">
-            @Body
-        </MudContainer>
-    </MudMainContent>
-</MudLayout>
+<CascadingAuthenticationState>
+    <MudLayout>
+        <MudAppBar Elevation="2" Color="Color.Primary">
+            <MudText Typo="Typo.h6">ArchoCybo</MudText>
+            <MudSpacer />
+            <MudIconButton Icon="@(_isDark? Icons.Material.Filled.DarkMode : Icons.Material.Filled.LightMode)" Color="Color.Inherit" OnClick="ToggleTheme" />
+
+            <AuthorizeView>
+                <Authorized>
+                    <MudText Typo="Typo.body2" Class="mr-3">Hello, @context.User.Identity?.Name</MudText>
+                    <MudButton Variant="Variant.Text" Color="Color.Inherit" OnClick="Logout" StartIcon="@Icons.Material.Filled.Logout">Logout</MudButton>
+                </Authorized>
+                <NotAuthorized>
+                    <MudButton Variant="Variant.Text" Color="Color.Inherit" Href="/login" StartIcon="@Icons.Material.Filled.Login">Login</MudButton>
+                </NotAuthorized>
+            </AuthorizeView>
+        </MudAppBar>
+
+        <AuthorizeView>
+            <Authorized>
+                <MudDrawer ClipMode="DrawerClipMode.Always" Variant="DrawerVariant.Responsive" Open="true" Elevation="1" Class="mud-theme-background">
+                    <MudNavMenu>
+                        <MudNavLink Href="/" Match="Microsoft.AspNetCore.Components.Routing.NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">Dashboard</MudNavLink>
+                        <MudDivider Class="my-2" />
+                        <MudNavLink Href="/database" Icon="@Icons.Material.Filled.Storage">Database Explorer</MudNavLink>
+                        <MudNavLink Href="/query-builder" Icon="@Icons.Material.Filled.Code">Query Builder (Basic)</MudNavLink>
+                        <MudNavLink Href="/query-builder-advanced" Icon="@Icons.Material.Filled.AutoFixHigh">Query Builder (Advanced)</MudNavLink>
+                        <MudNavLink Href="/entity-manager" Icon="@Icons.Material.Filled.TableView">Entity Manager</MudNavLink>
+                        <MudDivider Class="my-2" />
+                        <MudNavLink Href="/projects" Icon="@Icons.Material.Filled.Folder">Projects</MudNavLink>
+                        <MudNavLink Href="/users" Icon="@Icons.Material.Filled.Group">Users</MudNavLink>
+                    </MudNavMenu>
+                </MudDrawer>
+            </Authorized>
+        </AuthorizeView>
+
+        <MudMainContent Class="pa-4">
+            <MudContainer MaxWidth="MaxWidth.False">
+                @Body
+            </MudContainer>
+        </MudMainContent>
+    </MudLayout>
+</CascadingAuthenticationState>
 
 @code {
     bool _isDark = true;
@@ -72,7 +88,7 @@
     }
     void Logout()
     {
-        TokenProvider.Token = null;
-        NavigationManager.NavigateTo("/login");
+        AuthStateProvider.MarkUserAsLoggedOut();
+        NavigationManager.NavigateTo("/login", true);
     }
 }
