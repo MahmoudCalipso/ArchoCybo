@@ -1,4 +1,5 @@
 using ArchoCybo.Domain.Common;
+using ArchoCybo.Domain.Entities.CodeGeneration;
 
 namespace ArchoCybo.Domain.Entities.Security;
 
@@ -33,7 +34,7 @@ public class User : BaseAuditableEntity
     public virtual ICollection<UserPermission> UserPermissions { get; set; } = new List<UserPermission>();
     public virtual ICollection<UserSession> UserSessions { get; set; } = new List<UserSession>();
     public virtual ICollection<AuditLog> CreatedAuditLogs { get; set; } = new List<AuditLog>();
-
+    public virtual ICollection<Project> Projects { get; set; } = new List<Project>();
     // Computed Properties
     public string FullName => $"{FirstName} {LastName}".Trim();
     public bool IsLockedOut => LockoutEnd.HasValue && LockoutEnd > DateTime.UtcNow;
