@@ -8,6 +8,7 @@
 @using ArchoCybo.Services
 @using Microsoft.AspNetCore.Authorization
 @using System.Net.Http.Headers
+@using MudBlazor
 @inject HttpClient Http
 @inject NavigationManager Nav
 @inject IJSRuntime JS
@@ -65,7 +66,7 @@
                                 <MudSelectItem Value="@("=")">=</MudSelectItem>
                                 <MudSelectItem Value="@("!=")">!=</MudSelectItem>
                                 <MudSelectItem Value="@(">")">></MudSelectItem>
-                                <MudSelectItem Value="@("<")"><</MudSelectItem>
+                                <MudSelectItem Value="@("<")"> @("<") </MudSelectItem>
                                 <MudSelectItem Value="@("LIKE")">LIKE</MudSelectItem>
                                 <MudSelectItem Value="@("IN")">IN</MudSelectItem>
                             </MudSelect>
