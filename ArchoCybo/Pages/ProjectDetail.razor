@@ -1,0 +1,288 @@
+@page "/project/{ProjectId}"
+@attribute [Authorize]
+@using System.Net.Http.Json
+@using System.Text.Json
+@using System.Net.Http.Headers
+@using Microsoft.AspNetCore.Authorization
+@using ArchoCybo.Services
+@inject HttpClient Http
+@inject NavigationManager Nav
+@inject TokenProvider TokenProvider
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    @if (project != null)
+    {
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+            <MudStack>
+                <MudText Typo="Typo.h4">@project.GetProperty("name").GetString()</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    @project.GetProperty("description").GetString()
+                </MudText>
+            </MudStack>
+            <MudStack Row="true" Spacing="2">
+                <MudButton Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.Download" OnClick="DownloadProject">
+                    Download Backend
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.ArrowBack" Href="/my-projects">
+                    Back
+                </MudButton>
+            </MudStack>
+        </MudStack>
+
+        <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true">
+            <MudTabPanel Text="Entities" Icon="@Icons.Material.Filled.DataObject">
+                <div class="mt-4">
+                    <MudButton StartIcon="@Icons.Material.Filled.Add" Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenAddEntityDialog" Class="mb-3">
+                        Add Entity
+                    </MudButton>
+
+                    @if (entities != null && entities.Count > 0)
+                    {
+                        <MudTable Items="entities" Dense="true" Hover="true" Striped="true">
+                            <HeaderContent>
+                                <MudTh>Entity Name</MudTh>
+                                <MudTh>Properties</MudTh>
+                                <MudTh>Relations</MudTh>
+                                <MudTh>Actions</MudTh>
+                            </HeaderContent>
+                            <RowTemplate Context="entity">
+                                <MudTd>@entity.GetProperty("name").GetString()</MudTd>
+                                <MudTd>
+                                    <MudChip Size="Size.Small">@GetPropertyCount(entity.GetProperty("id").GetString())</MudChip>
+                                </MudTd>
+                                <MudTd>
+                                    <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="() => ManageProperties(entity)">
+                                        Manage
+                                    </MudButton>
+                                </MudTd>
+                                <MudTd>
+                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" />
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="() => DeleteEntity(entity)" />
+                                </MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    }
+                    else
+                    {
+                        <MudPaper Class="pa-4" Elevation="0">
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">No entities yet. Create your first entity to start building your backend.</MudText>
+                        </MudPaper>
+                    }
+                </div>
+            </MudTabPanel>
+
+            <MudTabPanel Text="Queries" Icon="@Icons.Material.Filled.QueryBuilder">
+                <div class="mt-4">
+                    <MudButton StartIcon="@Icons.Material.Filled.Add" Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenQueryBuilder" Class="mb-3">
+                        Create Query
+                    </MudButton>
+
+                    @if (queries != null && queries.Count > 0)
+                    {
+                        <MudTable Items="queries" Dense="true" Hover="true" Striped="true">
+                            <HeaderContent>
+                                <MudTh>Query Name</MudTh>
+                                <MudTh>Source Entity</MudTh>
+                                <MudTh>Joins</MudTh>
+                                <MudTh>Actions</MudTh>
+                            </HeaderContent>
+                            <RowTemplate Context="query">
+                                <MudTd>@query.GetProperty("name").GetString()</MudTd>
+                                <MudTd>@query.GetProperty("source_entity").GetString()</MudTd>
+                                <MudTd>
+                                    @{
+                                        var joins = query.GetProperty("join_entities").GetString();
+                                        var joinCount = string.IsNullOrEmpty(joins) ? 0 : joins.Split(',').Length;
+                                    }
+                                    <MudChip Size="Size.Small">@joinCount</MudChip>
+                                </MudTd>
+                                <MudTd>
+                                    <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="() => ViewQuery(query)">
+                                        View
+                                    </MudButton>
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" />
+                                </MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    }
+                    else
+                    {
+                        <MudPaper Class="pa-4" Elevation="0">
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">No queries yet. Create queries to generate custom API methods.</MudText>
+                        </MudPaper>
+                    }
+                </div>
+            </MudTabPanel>
+
+            <MudTabPanel Text="Settings" Icon="@Icons.Material.Filled.Settings">
+                <div class="mt-4">
+                    <MudGrid>
+                        <MudItem xs="12" md="6">
+                            <MudPaper Class="pa-4">
+                                <MudText Typo="Typo.h6" Class="mb-3">Project Configuration</MudText>
+                                <MudDivider Class="mb-3" />
+
+                                <MudText Typo="Typo.subtitle2">Database Type</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                                    @project.GetProperty("database_type").GetString()
+                                </MudText>
+
+                                <MudText Typo="Typo.subtitle2">Backend Framework</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                                    @project.GetProperty("backend_framework").GetString()
+                                </MudText>
+
+                                <MudText Typo="Typo.subtitle2">Architecture</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                    @project.GetProperty("architecture_style").GetString()
+                                </MudText>
+                            </MudPaper>
+                        </MudItem>
+
+                        <MudItem xs="12" md="6">
+                            <MudPaper Class="pa-4">
+                                <MudText Typo="Typo.h6" Class="mb-3">Quick Actions</MudText>
+                                <MudDivider Class="mb-3" />
+
+                                <MudStack Spacing="2">
+                                    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" OnClick="DownloadProject">
+                                        Download Complete Backend
+                                    </MudButton>
+                                    <MudButton Variant="Variant.Outlined" Color="Color.Info" FullWidth="true">
+                                        View API Documentation
+                                    </MudButton>
+                                    <MudButton Variant="Variant.Outlined" Color="Color.Warning" FullWidth="true">
+                                        Export as JSON
+                                    </MudButton>
+                                </MudStack>
+                            </MudPaper>
+                        </MudItem>
+                    </MudGrid>
+                </div>
+            </MudTabPanel>
+        </MudTabs>
+    }
+    else
+    {
+        <MudProgressLinear Indeterminate="true" />
+    }
+</MudContainer>
+
+@code {
+    [Parameter]
+    public string? ProjectId { get; set; }
+
+    JsonElement? project;
+    List<JsonElement>? entities;
+    List<JsonElement>? queries;
+
+    protected override async Task OnInitializedAsync()
+    {
+        AttachToken();
+        await LoadProject();
+        await LoadEntities();
+        await LoadQueries();
+    }
+
+    void AttachToken()
+    {
+        if (!string.IsNullOrEmpty(TokenProvider.Token))
+            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", TokenProvider.Token);
+    }
+
+    async Task LoadProject()
+    {
+        try
+        {
+            var projectData = await Http.GetFromJsonAsync<JsonElement>(Nav.ToAbsoluteUri($"api/projects/{ProjectId}"));
+            project = projectData;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Failed to load project: " + ex.Message, Severity.Error);
+        }
+    }
+
+    async Task LoadEntities()
+    {
+        try
+        {
+            entities = await Http.GetFromJsonAsync<List<JsonElement>>(Nav.ToAbsoluteUri($"api/projects/{ProjectId}/entities"));
+        }
+        catch
+        {
+            entities = new List<JsonElement>();
+        }
+    }
+
+    async Task LoadQueries()
+    {
+        try
+        {
+            queries = await Http.GetFromJsonAsync<List<JsonElement>>(Nav.ToAbsoluteUri($"api/projects/{ProjectId}/queries"));
+        }
+        catch
+        {
+            queries = new List<JsonElement>();
+        }
+    }
+
+    void OpenAddEntityDialog()
+    {
+        var parameters = new DialogParameters { { "ProjectId", ProjectId } };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium };
+        DialogService.Show<Dialogs.AddEntityDialog>("Add Entity", parameters, options);
+    }
+
+    void ManageProperties(JsonElement entity)
+    {
+        var entityId = entity.GetProperty("id").GetString();
+        Snackbar.Add($"Managing properties for entity: {entityId}", Severity.Info);
+    }
+
+    void DeleteEntity(JsonElement entity)
+    {
+        Snackbar.Add("Delete entity feature coming soon", Severity.Info);
+    }
+
+    void OpenQueryBuilder()
+    {
+        Snackbar.Add("Query builder for project coming soon", Severity.Info);
+    }
+
+    void ViewQuery(JsonElement query)
+    {
+        Snackbar.Add("Query detail view coming soon", Severity.Info);
+    }
+
+    async Task DownloadProject()
+    {
+        try
+        {
+            AttachToken();
+            var resp = await Http.PostAsync(Nav.ToAbsoluteUri($"api/projects/{ProjectId}/generate"), null);
+
+            if (resp.IsSuccessStatusCode)
+            {
+                var content = await resp.Content.ReadAsByteArrayAsync();
+                await using var stream = new MemoryStream(content);
+                var streamRef = new DotNetStreamReference(stream);
+                await JS.InvokeVoidAsync("downloadFileFromStream", "project-backend.zip", streamRef);
+                Snackbar.Add("Project downloaded successfully", Severity.Success);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Error: " + ex.Message, Severity.Error);
+        }
+    }
+
+    int GetPropertyCount(string? entityId)
+    {
+        return 5;
+    }
+
+    [Inject] IJSRuntime? JS { get; set; }
+}

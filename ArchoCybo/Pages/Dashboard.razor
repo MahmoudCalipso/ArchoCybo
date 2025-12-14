@@ -9,29 +9,90 @@
 @inject ISnackbar Snackbar
 
 <MudContainer MaxWidth="MaxWidth.False">
-  <MudGrid>
-    <MudItem xs="12" md="4">
-      <MudPaper Class="pa-4">
-        <MudText Typo="Typo.h6">Projects</MudText>
-        <MudText Typo="Typo.h4">@projectsCount</MudText>
-        <MudDivider Class="my-2" />
-        <MudText Typo="Typo.caption">Last generated: @lastGenerated</MudText>
-      </MudPaper>
-    </MudItem>
-    <MudItem xs="12" md="4">
-      <MudPaper Class="pa-4">
-        <MudText Typo="Typo.h6">Users</MudText>
-        <MudText Typo="Typo.h4">@usersCount</MudText>
-      </MudPaper>
-    </MudItem>
-    <MudItem xs="12" md="4">
-      <MudPaper Class="pa-4">
-        <MudText Typo="Typo.h6">Actions</MudText>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/projects">Manage Projects</MudButton>
-        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="ml-2" Href="/users">Manage Users</MudButton>
-      </MudPaper>
-    </MudItem>
-  </MudGrid>
+  <MudStack Spacing="3">
+    <MudPaper Class="pa-6" Elevation="2">
+      <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+        <MudStack>
+          <MudText Typo="Typo.h5">Backend Code Generator</MudText>
+          <MudText Typo="Typo.body2" Color="Color.Secondary">Create and download complete .NET 10 API projects in seconds</MudText>
+        </MudStack>
+        <MudButton Variant="Variant.Filled" Color="Color.Success" Size="Size.Large" Href="/my-projects" StartIcon="@Icons.Material.Filled.RocketLaunch">
+          Start Generating
+        </MudButton>
+      </MudStack>
+    </MudPaper>
+
+    <MudGrid>
+      <MudItem xs="12" md="3">
+        <MudPaper Class="pa-4">
+          <MudText Typo="Typo.h6">Generated Projects</MudText>
+          <MudText Typo="Typo.h4">@projectsCount</MudText>
+          <MudDivider Class="my-2" />
+          <MudText Typo="Typo.caption">Total backend projects</MudText>
+        </MudPaper>
+      </MudItem>
+      <MudItem xs="12" md="3">
+        <MudPaper Class="pa-4">
+          <MudText Typo="Typo.h6">Users</MudText>
+          <MudText Typo="Typo.h4">@usersCount</MudText>
+          <MudDivider Class="my-2" />
+          <MudText Typo="Typo.caption">Registered users</MudText>
+        </MudPaper>
+      </MudItem>
+      <MudItem xs="12" md="3">
+        <MudPaper Class="pa-4">
+          <MudText Typo="Typo.h6">Architecture</MudText>
+          <MudText Typo="Typo.body2" Color="Color.Info">Clean Architecture</MudText>
+          <MudDivider Class="my-2" />
+          <MudText Typo="Typo.caption">Production-ready</MudText>
+        </MudPaper>
+      </MudItem>
+      <MudItem xs="12" md="3">
+        <MudPaper Class="pa-4">
+          <MudText Typo="Typo.h6">Framework</MudText>
+          <MudText Typo="Typo.body2" Color="Color.Success">.NET 10</MudText>
+          <MudDivider Class="my-2" />
+          <MudText Typo="Typo.caption">Latest LTS</MudText>
+        </MudPaper>
+      </MudItem>
+    </MudGrid>
+
+    <MudText Typo="Typo.h6" Class="mt-4 mb-2">Quick Guide</MudText>
+    <MudGrid>
+      <MudItem xs="12" md="6">
+        <MudPaper Class="pa-4">
+          <MudStack Spacing="2">
+            <MudText Typo="Typo.subtitle2">1. Create a Project</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Go to "My Projects" and create a new backend project. Choose your database and architecture.</MudText>
+          </MudStack>
+        </MudPaper>
+      </MudItem>
+      <MudItem xs="12" md="6">
+        <MudPaper Class="pa-4">
+          <MudStack Spacing="2">
+            <MudText Typo="Typo.subtitle2">2. Define Entities</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Create entities (tables) and add properties with data types and annotations.</MudText>
+          </MudStack>
+        </MudPaper>
+      </MudItem>
+      <MudItem xs="12" md="6">
+        <MudPaper Class="pa-4">
+          <MudStack Spacing="2">
+            <MudText Typo="Typo.subtitle2">3. Build Queries</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Create custom queries with joins, filters, and generate API methods automatically.</MudText>
+          </MudStack>
+        </MudPaper>
+      </MudItem>
+      <MudItem xs="12" md="6">
+        <MudPaper Class="pa-4">
+          <MudStack Spacing="2">
+            <MudText Typo="Typo.subtitle2">4. Download & Deploy</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Download the complete backend project as ZIP and deploy to your server.</MudText>
+          </MudStack>
+        </MudPaper>
+      </MudItem>
+    </MudGrid>
+  </MudStack>
 </MudContainer>
 
 @code {
