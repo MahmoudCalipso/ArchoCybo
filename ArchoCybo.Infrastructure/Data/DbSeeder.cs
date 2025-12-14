@@ -22,7 +22,7 @@ public static class DbSeeder
         {
             var perms = new[]
             {
-                new Permission { Name = "projects.create", DisplayName = "Create Projects" },
+                new Permission { Name = "projects.fullAccess", DisplayName = "Full Access" },
                 new Permission { Name = "projects.view", DisplayName = "View Projects" },
                 new Permission { Name = "projects.generate", DisplayName = "Generate Project" }
             };
