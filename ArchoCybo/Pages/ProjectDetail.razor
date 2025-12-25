@@ -10,6 +10,7 @@
 @inject TokenProvider TokenProvider
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
+@inject IJSRuntime JS
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
     @if (project != null)
@@ -71,7 +72,7 @@
                                             </CardHeaderActions>
                                         </MudCardHeader>
                                         <MudCardContent>
-                                            <MudText Typo="Typo.body2" Color="Color.TextSecondary">Manage properties, relationships, and settings.</MudText>
+                                                <MudText Typo="Typo.body2" Color="Color.Secondary">Manage properties, relationships, and settings.</MudText>
                                         </MudCardContent>
                                     </MudCard>
                                 </MudItem>
@@ -220,7 +221,7 @@
     {
         var parameters = new DialogParameters { { "ProjectId", ProjectId } };
         var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium };
-        DialogService.Show<Dialogs.AddEntityDialog>("Add Entity", parameters, options);
+        DialogService.Show<ArchoCybo.Shared.Dialogs.AddEntityDialog>("Add Entity", parameters, options);
     }
 
     void ManageProperties(JsonElement entity)
@@ -281,8 +282,6 @@
         return 5;
     }
 
-    [Inject] IJSRuntime? JS { get; set; }
-    
     private Microsoft.AspNetCore.SignalR.Client.HubConnection? hub;
 
     protected override async Task OnInitializedAsync()

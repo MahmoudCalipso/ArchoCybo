@@ -7,7 +7,6 @@
 @using ArchoCybo.Services
 @using Microsoft.JSInterop
 @using MudBlazor
-@using static MudBlazor.CategoryTypes
 @inject HttpClient Http
 @inject NavigationManager Nav
 @inject TokenProvider TokenProvider
@@ -109,7 +108,7 @@
     {
         var parameters = new DialogParameters();
         var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium };
-        var dialog = DialogService.Show<Dialog.CreateProjectDialog>("Create New Project", parameters, options);
+        var dialog = DialogService.Show<ArchoCybo.Shared.Dialogs.CreateProjectDialog>("Create New Project", parameters, options);
     }
 
     async Task DownloadProject(string? projectId)

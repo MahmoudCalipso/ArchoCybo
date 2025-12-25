@@ -331,7 +331,7 @@
         builder.AddAttribute(5, "AlignItems", AlignItems.Center);
         builder.AddAttribute(6, "Class", "mb-2");
         builder.AddAttribute(7, "ChildContent", (RenderFragment)((b2) => {
-            b2.OpenComponent<MudChip<string>>(8);
+            b2.OpenComponent<MudChip>(8);
             b2.AddAttribute(9, "Label", true);
             b2.AddAttribute(10, "Color", group.Logic == "AND" ? Color.Primary : Color.Error);
             b2.AddAttribute(11, "OnClick", EventCallback.Factory.Create(this, () => ToggleGroupLogic(group)));
@@ -613,7 +613,7 @@
     {
         // ... (Run logic mostly same, sending SQL to API)
         try {
-            var response = await Http.PostAsJsonAsync("api/Query/execute", new QueryDto { Sql = queryText });
+            var response = await Http.PostAsJsonAsync("api/Query/execute", new QueryDto(queryText));
             if (response.IsSuccessStatusCode)
             {
                 var result = await response.Content.ReadAsStringAsync();
@@ -635,7 +635,7 @@
         var dialog = DialogService.Show<ArchoCybo.Shared.Dialogs.PromptDialog>("Save Query", parameters);
         var result = await dialog.Result;
 
-        if (!result.Canceled && result.Data is string name && !string.IsNullOrWhiteSpace(name))
+        if (!result.Cancelled && result.Data is string name && !string.IsNullOrWhiteSpace(name))
         {
              try
              {

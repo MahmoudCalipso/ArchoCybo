@@ -60,30 +60,89 @@ public class UserService : IUserService
         await _uow.SaveChangesAsync();
     }
 
-    public async Task UpdateUserDetailsAsync(Guid userId, UpdateUserDetailsDto dto)
+    public async Task UpdateUserDetailsAsync(Guid actingUserId, Guid userId, UpdateUserDetailsDto dto)
     {
         var repo = _uow.Repository<User>();
         var user = await repo.GetByIdAsync(userId);
         if (user == null) throw new Exception("User not found");
 
-        user.Email = dto.Email;
-        user.Username = dto.Username;
+        // Uniqueness checks
+        var emailExists = await _uow.Repository<User>().Query().AnyAsync(u => u.Email == dto.Email && u.Id != userId);
+        if (emailExists) throw new Exception("Email is already in use");
+        var usernameExists = await _uow.Repository<User>().Query().AnyAsync(u => u.Username == dto.Username && u.Id != userId);
+        if (usernameExists) throw new Exception("Username is already taken");
+
+        var oldValues = new
+        {
+            user.Email,
+            user.Username,
+            user.PhoneNumber,
+            user.FirstName,
+            user.LastName,
+            user.Avatar,
+            user.IsActive
+        };
+
+        user.Email = dto.Email.Trim();
+        user.Username = dto.Username.Trim();
         if (!string.IsNullOrEmpty(dto.PasswordHash))
         {
             user.PasswordHash = PasswordHasher.Hash(dto.PasswordHash);
         }
-        user.PhoneNumber = dto.PhoneNumber;
-        user.FirstName = dto.FirstName;
-        user.LastName = dto.LastName;
-        user.Avatar = dto.Avatar;
+        user.PhoneNumber = dto.PhoneNumber?.Trim();
+        user.FirstName = dto.FirstName?.Trim();
+        user.LastName = dto.LastName?.Trim();
+        user.Avatar = dto.Avatar?.Trim();
         user.IsActive = dto.IsActive;
 
         repo.Update(user);
         await _uow.SaveChangesAsync();
+
+        var newValues = new
+        {
+            user.Email,
+            user.Username,
+            user.PhoneNumber,
+            user.FirstName,
+            user.LastName,
+            user.Avatar,
+            user.IsActive
+        };
+
+        var audit = new Domain.Entities.Security.AuditLog
+        {
+            UserId = actingUserId,
+            EntityName = nameof(User),
+            EntityId = user.Id.ToString(),
+            Action = "Updated",
+            OldValues = System.Text.Json.JsonSerializer.Serialize(oldValues),
+            NewValues = System.Text.Json.JsonSerializer.Serialize(newValues),
+            Changes = null,
+            Timestamp = DateTime.UtcNow,
+            Source = "API"
+        };
+        await _uow.Repository<Domain.Entities.Security.AuditLog>().AddAsync(audit);
+        await _uow.SaveChangesAsync();
     }
 
-    public async Task UpdateUserPermissionsAsync(Guid userId, UpdateUserPermissionsDto dto)
+    public async Task UpdateUserPermissionsAsync(Guid actingUserId, Guid userId, UpdateUserPermissionsDto dto)
     {
+        // Prevent permission escalation: only allow changing permissions if acting user has equal or higher priority than target user's highest role
+        var rolesRepo = _uow.Repository<Role>();
+        var targetUser = await _uow.Repository<User>().Query()
+            .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
+            .FirstOrDefaultAsync(u => u.Id == userId);
+        var actingUser = await _uow.Repository<User>().Query()
+            .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
+            .FirstOrDefaultAsync(u => u.Id == actingUserId);
+        if (targetUser == null || actingUser == null) throw new Exception("User not found");
+        var targetMaxPriority = targetUser.UserRoles.Select(ur => ur.Role.Priority).DefaultIfEmpty(0).Max();
+        var actingMaxPriority = actingUser.UserRoles.Select(ur => ur.Role.Priority).DefaultIfEmpty(0).Max();
+        if (actingMaxPriority < targetMaxPriority)
+        {
+            throw new Exception("Cannot modify permissions of a user with higher role priority");
+        }
+
         var repo = _uow.Repository<Domain.Entities.Security.UserPermission>();
         var existing = await repo.Query().Where(x => x.UserId == userId).ToListAsync();
         
@@ -96,6 +155,19 @@ public class UserService : IUserService
         {
             await repo.AddAsync(new Domain.Entities.Security.UserPermission { UserId = userId, PermissionId = pid });
         }
+        await _uow.SaveChangesAsync();
+
+        var audit = new Domain.Entities.Security.AuditLog
+        {
+            UserId = actingUserId,
+            EntityName = nameof(User),
+            EntityId = userId.ToString(),
+            Action = "PermissionsUpdated",
+            Changes = System.Text.Json.JsonSerializer.Serialize(new { dto.AllowedPermissionIds }),
+            Timestamp = DateTime.UtcNow,
+            Source = "API"
+        };
+        await _uow.Repository<Domain.Entities.Security.AuditLog>().AddAsync(audit);
         await _uow.SaveChangesAsync();
     }
 
@@ -161,12 +233,46 @@ public class UserService : IUserService
         return rolePerms.Union(directPerms).Distinct();
     }
 
-    public async Task UpdateUserRolesAsync(Guid userId, List<Guid> roleIds)
+    public async Task UpdateUserRolesAsync(Guid actingUserId, Guid userId, List<Guid> roleIds)
     {
+        var roleRepo = _uow.Repository<Role>();
+        var targetUser = await _uow.Repository<User>().Query()
+            .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
+            .FirstOrDefaultAsync(u => u.Id == userId);
+        var actingUser = await _uow.Repository<User>().Query()
+            .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
+            .FirstOrDefaultAsync(u => u.Id == actingUserId);
+        if (targetUser == null || actingUser == null) throw new Exception("User not found");
+        var targetMaxPriority = targetUser.UserRoles.Select(ur => ur.Role.Priority).DefaultIfEmpty(0).Max();
+        var actingMaxPriority = actingUser.UserRoles.Select(ur => ur.Role.Priority).DefaultIfEmpty(0).Max();
+        if (actingMaxPriority < targetMaxPriority)
+        {
+            throw new Exception("Cannot modify roles of a user with higher role priority");
+        }
+        // Also prevent assigning roles with higher priority than acting user's highest
+        var rolesToAssign = await roleRepo.Query().Where(r => roleIds.Contains(r.Id)).ToListAsync();
+        if (rolesToAssign.Any(r => r.Priority > actingMaxPriority || r.IsSystemRole && actingUser.UserRoles.All(ur => ur.Role.Name != "SuperUser")))
+        {
+            throw new Exception("Attempt to assign roles beyond allowed priority or system roles");
+        }
+
         var repo = _uow.Repository<UserRole>();
         var existing = await repo.Query().Where(x => x.UserId == userId).ToListAsync();
         foreach (var ur in existing) repo.Remove(ur);
         foreach (var rid in roleIds) await repo.AddAsync(new UserRole { UserId = userId, RoleId = rid });
+        await _uow.SaveChangesAsync();
+
+        var audit = new Domain.Entities.Security.AuditLog
+        {
+            UserId = actingUserId,
+            EntityName = nameof(User),
+            EntityId = userId.ToString(),
+            Action = "RolesUpdated",
+            Changes = System.Text.Json.JsonSerializer.Serialize(new { roleIds }),
+            Timestamp = DateTime.UtcNow,
+            Source = "API"
+        };
+        await _uow.Repository<Domain.Entities.Security.AuditLog>().AddAsync(audit);
         await _uow.SaveChangesAsync();
     }
 
