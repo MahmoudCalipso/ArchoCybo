@@ -12,9 +12,14 @@ public class Entity
     public string TableName { get; set; } = string.Empty;
     public string ActualTableName => string.IsNullOrEmpty(TableName) ? Name : TableName;
 
+    public Guid ProjectId { get; set; }
+    public Project? Project { get; set; }
+
     // Strong collection of Fields
     private readonly List<Field> _fields = new();
     public IReadOnlyList<Field> Fields => _fields.AsReadOnly();
+
+    public ICollection<Relation> Relations { get; set; } = new List<Relation>();
 
     // Add field helper
     public void AddField(Field field)

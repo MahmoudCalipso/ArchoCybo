@@ -1,4 +1,5 @@
 @using MudBlazor
+@using ArchoCybo.Domain.Enums
 @inject ISnackbar Snackbar
 
 <MudDialog>
@@ -17,11 +18,19 @@
         </MudSelect>
 
         <MudText Typo="Typo.subtitle2" Class="mb-2">Database</MudText>
-        <MudSelect @bind-Value="database" Variant="Variant.Outlined" Class="mb-3">
-            <MudSelectItem Value="@("SqlServer")">SQL Server</MudSelectItem>
-            <MudSelectItem Value="@("PostgreSQL")">PostgreSQL</MudSelectItem>
-            <MudSelectItem Value="@("MySQL")">MySQL</MudSelectItem>
-        </MudSelect>
+        <MudGrid Spacing="2" Class="mb-3">
+            @foreach (var db in Enum.GetValues<DatabaseType>())
+            {
+                <MudItem xs="6" sm="4" md="3">
+                    <MudCard Class="@GetDbCardClass(db.ToString())" @onclick="() => SelectDatabase(db.ToString())" Elevation="2" Style="cursor: pointer;">
+                        <MudCardContent Class="d-flex flex-column align-center justify-center pa-2">
+                             <MudIcon Icon="@GetDbIcon(db.ToString())" Size="Size.Large" Color="@(database == db.ToString() ? Color.Primary : Color.Default)" />
+                             <MudText Typo="Typo.caption" Class="mt-1" Align="Align.Center">@db</MudText>
+                        </MudCardContent>
+                    </MudCard>
+                </MudItem>
+            }
+        </MudGrid>
 
         <MudText Typo="Typo.subtitle2" Class="mb-2">Architecture</MudText>
         <MudSelect @bind-Value="architecture" Variant="Variant.Outlined" Class="mb-3">
@@ -56,6 +65,32 @@
     bool includeSerialization = true;
 
     void Cancel() => MudDialog.Cancel();
+
+    void SelectDatabase(string db)
+    {
+        database = db;
+    }
+
+    string GetDbCardClass(string db)
+    {
+        return database == db ? "border-solid border-2 mud-border-primary" : "";
+    }
+
+    string GetDbIcon(string db)
+    {
+        return db switch
+        {
+            "SqlServer" => Icons.Material.Filled.Storage,
+            "PostgreSQL" => Icons.Material.Filled.Storage, // Replace with specific icons if available
+            "MySQL" => Icons.Material.Filled.Storage,
+            "MongoDB" => Icons.Material.Filled.DataObject,
+            "CosmosDB" => Icons.Material.Filled.Cloud,
+            "SQLite" => Icons.Material.Filled.SdStorage,
+            "Oracle" => Icons.Material.Filled.Storage,
+            "Redis" => Icons.Material.Filled.Memory,
+            _ => Icons.Material.Filled.Storage
+        };
+    }
 
     void Create()
     {

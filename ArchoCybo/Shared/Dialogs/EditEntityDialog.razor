@@ -1,0 +1,196 @@
+@using MudBlazor
+@using System.Text.Json
+@using ArchoCybo.Application.DTOs
+@using ArchoCybo.Domain.Enums
+@inject IDialogService DialogService
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+@using System.Net.Http.Json
+
+<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.h6" Class="mb-3">Edit Entity: @EntityName</MudText>
+        <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true">
+            <MudTabPanel Text="Properties" Icon="@Icons.Material.Filled.List">
+                 <MudButton StartIcon="@Icons.Material.Filled.Add" Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenAddPropertyDialog" Class="mt-3 mb-3">Add Property</MudButton>
+                 
+                 <MudTable Items="properties" Dense="true" Hover="true">
+                     <HeaderContent>
+                         <MudTh>Name</MudTh>
+                         <MudTh>Type</MudTh>
+                         <MudTh>Nullable</MudTh>
+                         <MudTh>Actions</MudTh>
+                     </HeaderContent>
+                     <RowTemplate Context="prop">
+                         <MudTd>@prop.Name</MudTd>
+                         <MudTd>@prop.DataType</MudTd>
+                         <MudTd>@(prop.IsNullable ? "Yes" : "No")</MudTd>
+                         <MudTd>
+                             <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="() => RemoveProperty(prop)" />
+                         </MudTd>
+                     </RowTemplate>
+                 </MudTable>
+            </MudTabPanel>
+            <MudTabPanel Text="Relations" Icon="@Icons.Material.Filled.Link">
+                 <MudButton StartIcon="@Icons.Material.Filled.Add" Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenAddRelationDialog" Class="mt-3 mb-3">Add Relation</MudButton>
+                 
+                 <MudTable Items="relations" Dense="true" Hover="true">
+                     <HeaderContent>
+                         <MudTh>Target</MudTh>
+                         <MudTh>Type</MudTh>
+                         <MudTh>Actions</MudTh>
+                     </HeaderContent>
+                     <RowTemplate Context="rel">
+                         <MudTd>@GetEntityName(rel.TargetEntityId)</MudTd>
+                         <MudTd>@rel.Type</MudTd>
+                         <MudTd>
+                             <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="() => RemoveRelation(rel)" />
+                         </MudTd>
+                     </RowTemplate>
+                 </MudTable>
+            </MudTabPanel>
+        </MudTabs>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Close">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public string EntityName { get; set; } = string.Empty;
+    [Parameter] public string EntityId { get; set; } = string.Empty;
+    [Parameter] public string ProjectId { get; set; } = string.Empty;
+
+    List<FieldDto> properties = new();
+    List<RelationDto> relations = new();
+    List<EntityDto> allEntities = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    async Task LoadData()
+    {
+        try
+        {
+            allEntities = await Http.GetFromJsonAsync<List<EntityDto>>($"api/projects/{ProjectId}/entities") ?? new();
+            var currentEntity = allEntities.FirstOrDefault(e => e.Id.ToString() == EntityId);
+            if (currentEntity != null)
+            {
+                properties = currentEntity.Fields;
+                relations = currentEntity.Relations;
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Failed to load entity data: " + ex.Message, Severity.Error);
+        }
+    }
+
+    string GetEntityName(Guid id)
+    {
+        return allEntities.FirstOrDefault(e => e.Id == id)?.Name ?? "Unknown";
+    }
+
+    async Task OpenAddPropertyDialog()
+    {
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small };
+        var dialog = DialogService.Show<AddPropertyDialog>("Add Property", options);
+        var result = await dialog.Result;
+        
+        if (!result.Canceled && result.Data != null)
+        {
+            var data = result.Data;
+            var type = data.GetType();
+            
+            var pName = type.GetProperty("PropertyName")?.GetValue(data)?.ToString() ?? "";
+            var pTypeStr = type.GetProperty("PropertyType")?.GetValue(data)?.ToString() ?? "string";
+            var pNull = (bool)(type.GetProperty("IsNullable")?.GetValue(data) ?? false);
+            var pKey = type.GetProperty("Annotations")?.GetValue(data) as List<string>;
+            var isKey = pKey?.Contains("Key") ?? false;
+            var maxLen = 100; // Default
+
+            // Map string type to Enum
+            FieldDataType dataType = FieldDataType.String;
+            if (Enum.TryParse<FieldDataType>(pTypeStr, true, out var dt)) dataType = dt;
+            else if (pTypeStr == "int") dataType = FieldDataType.Int;
+            else if (pTypeStr == "bool") dataType = FieldDataType.Boolean;
+            else if (pTypeStr == "DateTime") dataType = FieldDataType.DateTime;
+            else if (pTypeStr == "decimal") dataType = FieldDataType.Decimal;
+
+            var dto = new CreateFieldDto(pName, dataType, pNull, isKey, maxLen);
+            
+            var resp = await Http.PostAsJsonAsync($"api/projects/{ProjectId}/entities/{EntityId}/fields", dto);
+            if (resp.IsSuccessStatusCode)
+            {
+                await LoadData();
+                Snackbar.Add("Property added", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("Failed to add property", Severity.Error);
+            }
+        }
+    }
+    
+    async Task OpenAddRelationDialog()
+    {
+         var availableNames = allEntities.Where(e => e.Id.ToString() != EntityId).Select(e => e.Name).ToList();
+         var parameters = new DialogParameters { { "AvailableEntities", availableNames }, { "SourceEntity", EntityName } };
+         var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small };
+         var dialog = DialogService.Show<AddRelationDialog>("Add Relation", parameters, options);
+         var result = await dialog.Result;
+         
+         if (!result.Canceled && result.Data != null)
+         {
+            var data = result.Data;
+            var type = data.GetType();
+            
+            var targetName = type.GetProperty("TargetEntity")?.GetValue(data)?.ToString() ?? "";
+            var relType = type.GetProperty("RelationType")?.GetValue(data)?.ToString() ?? "";
+            var fk = type.GetProperty("ForeignKey")?.GetValue(data)?.ToString() ?? "";
+            var nav = type.GetProperty("NavigationProperty")?.GetValue(data)?.ToString() ?? "";
+            var join = type.GetProperty("JoinTable")?.GetValue(data)?.ToString();
+
+            var targetEntity = allEntities.FirstOrDefault(e => e.Name == targetName);
+            if (targetEntity != null)
+            {
+                var dto = new CreateRelationDto(targetEntity.Id, relType, fk, nav, join);
+                var resp = await Http.PostAsJsonAsync($"api/projects/{ProjectId}/entities/{EntityId}/relations", dto);
+                if (resp.IsSuccessStatusCode)
+                {
+                    await LoadData();
+                    Snackbar.Add("Relation added", Severity.Success);
+                }
+                else
+                {
+                    Snackbar.Add("Failed to add relation", Severity.Error);
+                }
+            }
+         }
+    }
+
+    async Task RemoveProperty(FieldDto prop)
+    {
+        var resp = await Http.DeleteAsync($"api/projects/{ProjectId}/entities/{EntityId}/fields/{prop.Id}");
+        if (resp.IsSuccessStatusCode)
+        {
+             await LoadData();
+             Snackbar.Add("Property deleted", Severity.Success);
+        }
+    }
+
+    async Task RemoveRelation(RelationDto rel)
+    {
+        var resp = await Http.DeleteAsync($"api/projects/{ProjectId}/entities/{EntityId}/relations/{rel.Id}");
+        if (resp.IsSuccessStatusCode)
+        {
+             await LoadData();
+             Snackbar.Add("Relation deleted", Severity.Success);
+        }
+    }
+
+    void Close() => MudDialog.Close(DialogResult.Ok(true));
+}

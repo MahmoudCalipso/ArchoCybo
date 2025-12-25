@@ -22,11 +22,62 @@ public static class DbSeeder
         {
             var perms = new[]
             {
-                new Permission { Name = "projects.fullAccess", DisplayName = "Full Access" },
-                new Permission { Name = "projects.view", DisplayName = "View Projects" },
-                new Permission { Name = "projects.generate", DisplayName = "Generate Project" }
+                new Permission { Name = "projects.fullAccess", DisplayName = "Full Access", Resource = "Projects", Action = "FullAccess" },
+                new Permission { Name = "projects.view", DisplayName = "View Projects", Resource = "Projects", Action = "View" },
+                new Permission { Name = "projects.generate", DisplayName = "Generate Project", Resource = "Projects", Action = "Generate" },
+                new Permission { Name = "users.manage", DisplayName = "Manage Users", Resource = "Users", Action = "Manage" }
             };
             db.Permissions.AddRange(perms);
+            await db.SaveChangesAsync();
+        }
+
+        if (!db.EndpointPermissions.Any())
+        {
+            var manageUsersPerm = db.Permissions.FirstOrDefault(p => p.Name == "users.manage");
+            if (manageUsersPerm != null)
+            {
+                var endpoints = new[]
+                {
+                    new EndpointPermission 
+                    { 
+                        Controller = "Users", 
+                        Action = "GetAll", 
+                        HttpMethod = "GET", 
+                        EndpointPath = "api/Users",
+                        RequiresAuthentication = true,
+                        RequiredPermissionId = manageUsersPerm.Id
+                    },
+                    new EndpointPermission 
+                    { 
+                        Controller = "Users", 
+                        Action = "Create", 
+                        HttpMethod = "POST", 
+                        EndpointPath = "api/Users",
+                        RequiresAuthentication = true,
+                        RequiredPermissionId = manageUsersPerm.Id
+                    },
+                    new EndpointPermission 
+                    { 
+                        Controller = "Users", 
+                        Action = "Update", 
+                        HttpMethod = "PUT", 
+                        EndpointPath = "api/Users",
+                        RequiresAuthentication = true,
+                        RequiredPermissionId = manageUsersPerm.Id
+                    },
+                    new EndpointPermission 
+                    { 
+                        Controller = "Users", 
+                        Action = "Delete", 
+                        HttpMethod = "DELETE", 
+                        EndpointPath = "api/Users/{id}",
+                        RequiresAuthentication = true,
+                        RequiredPermissionId = manageUsersPerm.Id
+                    }
+                };
+                db.EndpointPermissions.AddRange(endpoints);
+                await db.SaveChangesAsync();
+            }
         }
 
         if (!db.Users.Any())

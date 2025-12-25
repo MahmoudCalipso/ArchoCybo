@@ -1,0 +1,203 @@
+@page "/project/{ProjectId}/schema"
+@attribute [Authorize]
+@using ArchoCybo.Application.DTOs
+@using ArchoCybo.Shared.Dialogs
+@inject HttpClient Http
+@inject IDialogService DialogService
+@inject NavigationManager Nav
+@inject Microsoft.AspNetCore.SignalR.Client.HubConnection? Hub
+
+<MudContainer MaxWidth="MaxWidth.False" Class="mt-4" Style="height: 85vh; display: flex; flex-direction: column;">
+    <MudStack Direction="Row" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+        <MudText Typo="Typo.h4">Schema Designer</MudText>
+        <MudStack Direction="Row">
+             <MudButton Variant="Variant.Filled" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Code" OnClick="GoToQueryBuilder">Query Builder</MudButton>
+             <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="AddEntity">Add Entity</MudButton>
+        </MudStack>
+    </MudStack>
+
+    <!-- Canvas Area -->
+    <div class="schema-canvas" style="flex-grow: 1; background-color: #1e1e1e; position: relative; overflow: auto; border-radius: 8px; background-image: radial-gradient(#333 1px, transparent 1px); background-size: 20px 20px;">
+        
+        <!-- SVG Layer for Relations -->
+        <svg style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0;">
+            <defs>
+                <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="#666" />
+                </marker>
+            </defs>
+            @foreach (var rel in relationsToDraw)
+            {
+                <path d="@GetPath(rel)" stroke="#666" stroke-width="2" fill="none" marker-end="url(#arrowhead)" />
+            }
+        </svg>
+
+        @foreach (var node in entityNodes)
+        {
+            <MudPaper Class="schema-node pa-0" Elevation="4" Style="@($"position: absolute; left: {node.X}px; top: {node.Y}px; width: 250px; cursor: pointer; z-index: 1;")" @onclick="() => EditEntity(node.Entity)">
+                <!-- Header -->
+                <div class="d-flex justify-space-between align-center px-3 py-2" style="background-color: var(--mud-palette-primary); color: white; border-top-left-radius: 4px; border-top-right-radius: 4px;">
+                    <MudText Typo="Typo.subtitle1"><b>@node.Entity.Name</b></MudText>
+                    <MudIconButton Icon="@Icons.Material.Filled.Settings" Size="Size.Small" Color="Color.Inherit" />
+                </div>
+                
+                <!-- Fields -->
+                <div class="px-3 py-2" style="background-color: #2d2d2d;">
+                    @foreach (var field in node.Entity.Fields.Take(5))
+                    {
+                        <div class="d-flex justify-space-between mb-1">
+                            <MudText Typo="Typo.caption" Style="color: #ccc;">@field.Name</MudText>
+                            <MudText Typo="Typo.caption" Style="color: #888;">@field.DataType</MudText>
+                        </div>
+                    }
+                    @if (node.Entity.Fields.Count > 5)
+                    {
+                        <MudText Typo="Typo.caption" Align="Align.Center" Class="d-block mt-1" Style="color: #666;">+ @(node.Entity.Fields.Count - 5) more</MudText>
+                    }
+                </div>
+            </MudPaper>
+        }
+    </div>
+</MudContainer>
+
+@code {
+    [Parameter] public string ProjectId { get; set; }
+    
+    class EntityNode
+    {
+        public EntityDto Entity { get; set; }
+        public double X { get; set; }
+        public double Y { get; set; }
+    }
+    
+    class RelationDraw
+    {
+        public double X1 { get; set; }
+        public double Y1 { get; set; }
+        public double X2 { get; set; }
+        public double Y2 { get; set; }
+    }
+
+    List<EntityNode> entityNodes = new();
+    List<RelationDraw> relationsToDraw = new();
+    private HubConnection? hub;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadEntities();
+        
+        // SignalR
+        hub = new Microsoft.AspNetCore.SignalR.Client.HubConnectionBuilder()
+            .WithUrl(Nav.ToAbsoluteUri("/hubs/notifications"))
+            .WithAutomaticReconnect()
+            .Build();
+
+        hub.On<Guid>("ProjectUpdated", async (Guid id) =>
+        {
+            if (id.ToString() == ProjectId)
+            {
+                await LoadEntities();
+                StateHasChanged();
+            }
+        });
+
+        try { await hub.StartAsync(); } catch {}
+    }
+
+    async Task LoadEntities()
+    {
+        try
+        {
+            var dtos = await Http.GetFromJsonAsync<List<EntityDto>>($"api/projects/{ProjectId}/entities") ?? new();
+            
+            // Layout logic
+            entityNodes.Clear();
+            int x = 50, y = 50, col = 0;
+            foreach (var e in dtos)
+            {
+                entityNodes.Add(new EntityNode { Entity = e, X = x, Y = y });
+                
+                x += 300;
+                col++;
+                if (col > 3) { col = 0; x = 50; y += 300; }
+            }
+            
+            CalculateRelations();
+        }
+        catch (Exception ex)
+        {
+            // log
+        }
+    }
+    
+    void CalculateRelations()
+    {
+        relationsToDraw.Clear();
+        foreach (var node in entityNodes)
+        {
+            if (node.Entity.Relations == null) continue;
+            
+            foreach (var rel in node.Entity.Relations)
+            {
+                var target = entityNodes.FirstOrDefault(n => n.Entity.Id == rel.TargetEntityId);
+                if (target != null)
+                {
+                    // Center of nodes (width 250)
+                    relationsToDraw.Add(new RelationDraw 
+                    { 
+                        X1 = node.X + 125, Y1 = node.Y + 40, // rough center
+                        X2 = target.X + 125, Y2 = target.Y + 40 
+                    });
+                }
+            }
+        }
+    }
+    
+    string GetPath(RelationDraw r)
+    {
+        // Simple straight line for now, maybe bezier later
+        // return $"M {r.X1} {r.Y1} L {r.X2} {r.Y2}";
+        
+        // Curvi-linear
+        var mx = (r.X1 + r.X2) / 2;
+        return $"M {r.X1} {r.Y1} C {mx} {r.Y1}, {mx} {r.Y2}, {r.X2} {r.Y2}";
+    }
+
+    async Task AddEntity()
+    {
+        var parameters = new DialogParameters { { "ProjectId", ProjectId } };
+        var dialog = DialogService.Show<AddEntityDialog>("Add Entity", parameters);
+        var result = await dialog.Result;
+        
+        if (!result.Canceled && result.Data != null)
+        {
+             // Actually create via API
+             dynamic data = result.Data;
+             var dto = new CreateEntityDto(data.EntityName, data.EntityName); // simplified
+             await Http.PostAsJsonAsync($"api/projects/{ProjectId}/entities", dto);
+             // SignalR will refresh
+        }
+    }
+    
+    void EditEntity(EntityDto entity)
+    {
+        var parameters = new DialogParameters 
+        { 
+            { "EntityName", entity.Name },
+            { "EntityId", entity.Id.ToString() },
+            { "ProjectId", ProjectId }
+        };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+        DialogService.Show<EditEntityDialog>("Manage Entity", parameters, options);
+    }
+    
+    void GoToQueryBuilder()
+    {
+        Nav.NavigateTo($"/query-builder/{ProjectId}");
+    }
+    
+    public async ValueTask DisposeAsync()
+    {
+        if (hub != null) try { await hub.DisposeAsync(); } catch { }
+    }
+}

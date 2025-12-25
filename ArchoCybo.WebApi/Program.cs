@@ -17,7 +17,10 @@ using Hangfire.SqlServer;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-builder.Services.AddControllers();
+builder.Services.AddControllers(options => 
+{
+    options.Filters.Add<ArchoCybo.WebApi.Filters.DynamicPermissionFilter>();
+});
 
 // MediatR (CQRS)
 builder.Services.AddMediatR(typeof(LoginHandler).Assembly);

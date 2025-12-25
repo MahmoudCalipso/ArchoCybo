@@ -1,0 +1,25 @@
+@using MudBlazor
+
+<MudDialog>
+    <DialogContent>
+        <MudText>@ContentText</MudText>
+        <MudTextField @bind-Value="Value" Label="Value" Variant="Variant.Outlined" Class="mt-3" AutoFocus="true" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="@Color" Variant="Variant.Filled" OnClick="Submit">@ButtonText</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public string ContentText { get; set; } = "Enter value:";
+    [Parameter] public string ButtonText { get; set; } = "OK";
+    [Parameter] public Color Color { get; set; } = Color.Primary;
+
+    public string Value { get; set; } = "";
+
+    void Submit() => MudDialog.Close(DialogResult.Ok(Value));
+    void Cancel() => MudDialog.Cancel();
+}

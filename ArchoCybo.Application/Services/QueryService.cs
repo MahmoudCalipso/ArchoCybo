@@ -17,7 +17,7 @@ public class QueryService : IQueryService
 
     public async Task<Guid> CreateCustomQueryAsync(CreateCustomQueryDto dto)
     {
-        var q = new CustomQuery { Name = dto.Name, Sql = dto.Sql, ProjectId = dto.ProjectId };
+        var q = new CustomQuery { Name = dto.Name, Sql = dto.Sql, ResultSchema = dto.ResultSchema, ProjectId = dto.ProjectId };
         await _uow.Repository<CustomQuery>().AddAsync(q);
         await _uow.SaveChangesAsync();
         return q.Id;
@@ -27,7 +27,7 @@ public class QueryService : IQueryService
     {
         var repo = _uow.Repository<CustomQuery>();
         var list = await repo.Query().Where(q => q.ProjectId == projectId).ToListAsync();
-        return list.Select(q => new CustomQueryDto(q.Id, q.Name, q.Sql, q.ProjectId, q.CreatedAt));
+        return list.Select(q => new CustomQueryDto(q.Id, q.Name, q.Sql, q.ResultSchema, q.ProjectId, q.CreatedAt));
     }
 
     public async Task UpdateCustomQueryAsync(UpdateCustomQueryDto dto)
@@ -37,6 +37,7 @@ public class QueryService : IQueryService
         if (q == null) throw new Exception("CustomQuery not found");
         q.Name = dto.Name;
         q.Sql = dto.Sql;
+        q.ResultSchema = dto.ResultSchema;
         repo.Update(q);
         await _uow.SaveChangesAsync();
     }

@@ -10,10 +10,12 @@ namespace ArchoCybo.WebApi.Controllers;
 public class ProjectController : ControllerBase
 {
     private readonly IProjectService _projectService;
+    private readonly INotificationPublisher _publisher;
 
-    public ProjectController(IProjectService projectService)
+    public ProjectController(IProjectService projectService, INotificationPublisher publisher)
     {
         _projectService = projectService;
+        _publisher = publisher;
     }
 
     [HttpPost]
@@ -26,6 +28,10 @@ public class ProjectController : ControllerBase
         var userId = Guid.Parse(userIdClaim.Value);
 
         var id = await _projectService.CreateProjectAsync(dto, userId);
+        
+        // Notify
+        await _publisher.PublishUserChangedAsync(userId); // Notify user list update
+        
         return CreatedAtAction(nameof(GetProject), new { id }, new { id });
     }
 

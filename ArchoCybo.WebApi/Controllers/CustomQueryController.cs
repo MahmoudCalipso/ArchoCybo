@@ -11,10 +11,12 @@ namespace ArchoCybo.WebApi.Controllers;
 public class CustomQueryController : ControllerBase
 {
     private readonly IQueryService _queryService;
+    private readonly INotificationPublisher _publisher;
 
-    public CustomQueryController(IQueryService queryService)
+    public CustomQueryController(IQueryService queryService, INotificationPublisher publisher)
     {
         _queryService = queryService;
+        _publisher = publisher;
     }
 
     [HttpPost]
@@ -22,6 +24,7 @@ public class CustomQueryController : ControllerBase
     public async Task<IActionResult> Create([FromBody] CreateCustomQueryDto dto)
     {
         var id = await _queryService.CreateCustomQueryAsync(dto);
+        await _publisher.PublishProjectUpdatedAsync(dto.ProjectId);
         return CreatedAtAction(nameof(GetByProject), new { projectId = dto.ProjectId }, new { id });
     }
 
