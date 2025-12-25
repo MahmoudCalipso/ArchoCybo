@@ -90,7 +90,7 @@
                 Password = password
             };
 
-            var resp = await Http.PostAsJsonAsync(Nav.ToAbsoluteUri("api/auth/register"), registerDto);
+            var resp = await Http.PostAsJsonAsync("api/auth/register", registerDto);
 
             if (resp.IsSuccessStatusCode)
             {

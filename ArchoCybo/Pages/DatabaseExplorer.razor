@@ -10,7 +10,10 @@
 @inject HttpClient Http
 @inject NavigationManager Nav
 @inject IJSRuntime JS
+@inject ISnackbar Snackbar
+@using System.Text
 
+@inject IConfiguration Config
 <style>
   /* Prisma Studio-like minimal theme */
   .explorer-root { padding:18px; font-family: Inter,system-ui, -apple-system, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial; background: #f6f7fb; min-height: calc(100vh - 72px); }
@@ -128,7 +131,7 @@
             }
             else
             {
-              <div class="small-muted">Columns are not loaded — click 'Load Columns' to fetch.</div>
+              <div class="small-muted">Columns are not loaded. Click 'Load Columns' to fetch.</div>
             }
           </div>
         }
@@ -155,7 +158,7 @@
               @for (int i=0;i<relations.Count;i++)
               {
                 var r = relations[i];
-                <li>@r.Source ? @r.Target <button class="control-btn" style="margin-left:8px" @onclick="(()=>RemoveRelation(i))">?</button></li>
+                <li>@r.Source &rarr; @r.Target <button class="control-btn" style="margin-left:8px" @onclick="(()=>RemoveRelation(i))">Remove</button></li>
               }
             </ol>
           }
@@ -201,8 +204,9 @@
     {
         await LoadEntitiesFromApi();
 
+        var baseUrl = (Config["ApiBaseUrl"] ?? Nav.BaseUri).TrimEnd('/');
         hub = new HubConnectionBuilder()
-            .WithUrl(Nav.ToAbsoluteUri("/hubs/notifications"))
+            .WithUrl($"{baseUrl}/hubs/notifications")
             .WithAutomaticReconnect()
             .Build();
 
@@ -219,7 +223,7 @@
     {
         try
         {
-            rawEntities = await Http.GetFromJsonAsync<List<JsonElement>>(Nav.ToAbsoluteUri("api/Metadata/entities"));
+            rawEntities = await Http.GetFromJsonAsync<List<JsonElement>>("api/Metadata/entities");
             if (rawEntities == null) rawEntities = new List<JsonElement>();
 
             // map to GraphEntity with positions (grid)
@@ -275,30 +279,23 @@
     double canvasBoundingLeft = 0;
     double canvasBoundingTop = 0;
 
-    void OnPointerMove(Microsoft.AspNetCore.Components.Web.PointerEventArgs ev)
+    record ClientRect(double Left, double Top, double Width, double Height);
+
+    async Task OnPointerMove(Microsoft.AspNetCore.Components.Web.PointerEventArgs ev)
     {
         if (draggingNode == null) return;
-        // compute canvas offset
-        var rectTask = canvasRef.GetBoundingClientRectAsync(JS);
-        rectTask.AsTask().ContinueWith(t =>
-        {
-            var rect = t.Result;
-            canvasBoundingLeft = rect.Left;
-            canvasBoundingTop = rect.Top;
+        var rect = await JS.InvokeAsync<ClientRect>("getBoundingClientRect", canvasRef);
+        canvasBoundingLeft = rect.Left;
+        canvasBoundingTop = rect.Top;
 
-            InvokeAsync(() =>
-            {
-                var ent = graphEntities.FirstOrDefault(x => x.Name == draggingNode);
-                if (ent != null)
-                {
-                    ent = ent with { X = ev.ClientX - canvasBoundingLeft - dragOffsetX, Y = ev.ClientY - canvasBoundingTop - dragOffsetY };
-                    // update list
-                    var idx = graphEntities.FindIndex(x => x.Name == draggingNode);
-                    if (idx >= 0) graphEntities[idx] = ent;
-                    StateHasChanged();
-                }
-            });
-        });
+        var ent = graphEntities.FirstOrDefault(x => x.Name == draggingNode);
+        if (ent != null)
+        {
+            ent = ent with { X = ev.ClientX - canvasBoundingLeft - dragOffsetX, Y = ev.ClientY - canvasBoundingTop - dragOffsetY };
+            var idx = graphEntities.FindIndex(x => x.Name == draggingNode);
+            if (idx >= 0) graphEntities[idx] = ent;
+            StateHasChanged();
+        }
     }
 
     void OnPointerUp(Microsoft.AspNetCore.Components.Web.PointerEventArgs _)
@@ -354,9 +351,7 @@
 
     void SnackbarMessage(string message)
     {
-        // simple temporary visual hint: use JS alert minimally
-        // but we keep it silent to not spam; could integrate MudSnackbar via DI if desired
-        Console.WriteLine(message);
+        Snackbar.Add(message, Severity.Info);
     }
 
     async Task LoadColumnsForSelected()
@@ -431,7 +426,10 @@
             Relations = relations
         };
         var json = JsonSerializer.Serialize(exportObj, new JsonSerializerOptions { WriteIndented = true });
-        await JS.InvokeVoidAsync("archocyboDownload", $"model-{DateTime.UtcNow:yyyyMMddHHmm}.json", json);
+        var bytes = Encoding.UTF8.GetBytes(json);
+        await using var stream = new MemoryStream(bytes);
+        var streamRef = new DotNetStreamReference(stream);
+        await JS.InvokeVoidAsync("downloadFileFromStream", $"model-{DateTime.UtcNow:yyyyMMddHHmm}.json", streamRef);
     }
 
     void ImportModelPrompt()
@@ -502,24 +500,3 @@
     // We're using the built-in IJSRuntime extension to get element rect (via a tiny JS helper below)
 }
 
-<script>
-  window.archocyboDownload = function (filename, content) {
-    const blob = new Blob([content], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  // helper to retrieve bounding rect
-  window.getBoundingClientRect = (el) => {
-    if (!el) return null;
-    const r = el.getBoundingClientRect();
-    return { left: r.left, top: r.top, width: r.width, height: r.height };
-  };
-
-  // Blazor extension to call from element references:
-  // canvasRef.GetBoundingClientRectAsync(JS) is implemented by the runtime as:
-  // JS.InvokeAsync<Object>("getBoundingClientRect", element)
-</script>

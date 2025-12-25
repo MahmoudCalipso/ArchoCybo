@@ -20,4 +20,6 @@ public interface IUserService
     Task<List<EndpointAccessDto>> GetUserEndpointAccessAsync(Guid userId);
     Task UpdateUserRolesAsync(Guid actingUserId, Guid userId, List<Guid> roleIds);
     Task DeleteUserAsync(Guid userId);
+    Task<List<RoleSummaryDto>> GetAllRolesAsync();
+    Task<List<PermissionSummaryDto>> GetAllPermissionsAsync();
 }

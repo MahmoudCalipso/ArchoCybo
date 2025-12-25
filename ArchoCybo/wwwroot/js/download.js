@@ -27,3 +27,10 @@ function copyToClipboard(text) {
 function confirmAction(message) {
     return confirm(message);
 }
+
+// Get bounding client rect for an element reference
+function getBoundingClientRect(el) {
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { left: r.left, top: r.top, width: r.width, height: r.height };
+}

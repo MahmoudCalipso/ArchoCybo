@@ -10,8 +10,7 @@ public static class PasswordHasher
     public static string Hash(string password, int iterations = 100_000)
     {
         var salt = RandomNumberGenerator.GetBytes(16);
-        using var pbkdf2 = new Rfc2898DeriveBytes(password, salt, iterations, HashAlgorithmName.SHA256);
-        var hash = pbkdf2.GetBytes(32);
+        var hash = Rfc2898DeriveBytes.Pbkdf2(password, salt, iterations, HashAlgorithmName.SHA256, 32);
         var result = new byte[1 + 4 + salt.Length + hash.Length];
         // format: 0x01 | iterations (int) | salt | hash
         result[0] = 0x01;
@@ -33,8 +32,7 @@ public static class PasswordHasher
             Buffer.BlockCopy(bytes, 5, salt, 0, 16);
             var hash = new byte[32];
             Buffer.BlockCopy(bytes, 5 + 16, hash, 0, 32);
-            using var pbkdf2 = new Rfc2898DeriveBytes(password, salt, iterations, HashAlgorithmName.SHA256);
-            var computed = pbkdf2.GetBytes(32);
+            var computed = Rfc2898DeriveBytes.Pbkdf2(password, salt, iterations, HashAlgorithmName.SHA256, 32);
             return CryptographicOperations.FixedTimeEquals(computed, hash);
         }
         catch

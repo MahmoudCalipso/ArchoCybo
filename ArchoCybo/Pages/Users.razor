@@ -1,184 +1,157 @@
 @page "/users"
 @attribute [Authorize]
 @using System.Net.Http.Json
-@using System.ComponentModel.DataAnnotations
-@using ArchoCybo.Shared
-@using MudBlazor
-@using MudBlazor.Services
 @using ArchoCybo.Application.DTOs
-@using System.Text.Json
-@using ArchoCybo.Services
-@using static MudBlazor.CategoryTypes
-@using Microsoft.AspNetCore.Authorization
 @inject HttpClient Http
-@inject NavigationManager Nav
-@inject TokenProvider TokenProvider
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
+@inject NavigationManager Nav
+@inject ArchoCybo.Services.TokenProvider TokenProvider
 
-<MudContainer MaxWidth="MaxWidth.Large">
-  <MudText Typo="Typo.h4">Users</MudText>
-
-  <MudPaper Class="pa-4 mt-3">
-    <MudTable Items="users?.Items" Dense="true" Hover="true">
-      <ToolBarContent>
-        <MudText Typo="Typo.subtitle1">User Management</MudText>
-        <MudSpacer />
-                <MudTextField @bind-Value="search"
-                              Placeholder="Search..."
-                              Adornment="Adornment.Start"
-                              AdornmentIcon="Icons.Material.Filled.Search"
-                              Immediate="true"
-                              OnInput="RefreshUsers" />
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenCreate">New User</MudButton>
-      </ToolBarContent>
-      <HeaderContent>
-        <MudTh>Username</MudTh>
-        <MudTh>Email</MudTh>
-        <MudTh>Active</MudTh>
-        <MudTh></MudTh>
-      </HeaderContent>
-      <RowTemplate Context="user">
-        <MudTd>@user.Username</MudTd>
-        <MudTd>@user.Email</MudTd>
-        <MudTd>@user.IsActive</MudTd>
-        <MudTd>
-          <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="() => EditUser(user)">Edit</MudButton>
-          <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Error" Class="ml-2" OnClick="() => ConfirmDelete(user.Id)">Delete</MudButton>
-        </MudTd>
-      </RowTemplate>
-    </MudTable>
-
-    <MudStack Direction="Row"
-              AlignItems="AlignItems.Center"
-              Justify="Justify.SpaceBetween"
-              Class="mt-2">
-      <MudText Typo="Typo.caption">Showing @(((users?.Page ?? 1 -1)* (users?.PageSize ?? 10))+1)-@((((users?.Page ?? 1)-1)*(users?.PageSize ?? 10))+ (users?.Items.Count() ?? 0)) of @users?.TotalCount</MudText>
-      <MudStack Direction="Row" Spacing="1">
-        <MudButton Disabled="@(users==null || users.Page==1)" OnClick="PreviousUsers">Previous</MudButton>
-        <MudButton Disabled="@(users==null || (users.Page*users.PageSize>=users.TotalCount))" OnClick="NextUsers">Next</MudButton>
-      </MudStack>
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudStack Direction="Row" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+        <MudText Typo="Typo.h4">Users</MudText>
+        <MudTextField T="string" Label="Search" Value="@search" ValueChanged="@OnSearchChanged" Variant="Variant.Outlined" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
     </MudStack>
-  </MudPaper>
+
+    <MudPaper Class="pa-4" Elevation="3">
+        <MudTable Items="users" Hover="true" Dense="true">
+            <HeaderContent>
+                <MudTh>Username</MudTh>
+                <MudTh>Email</MudTh>
+                <MudTh>Active</MudTh>
+                <MudTh>Roles</MudTh>
+                <MudTh>Actions</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Username">@context.Username</MudTd>
+                <MudTd DataLabel="Email">@context.Email</MudTd>
+                <MudTd DataLabel="Active">@context.IsActive</MudTd>
+                <MudTd DataLabel="Roles">@string.Join(", ", context.Roles)</MudTd>
+                <MudTd DataLabel="Actions">
+                    <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => EditDetails(context))">Edit Details</MudButton>
+                    <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="@(() => EditRoles(context))">Roles</MudButton>
+                    <MudButton Variant="Variant.Text" Color="Color.Info" OnClick="@(() => EditPermissions(context))">Permissions</MudButton>
+                    <MudButton Variant="Variant.Text" Color="Color.Tertiary" OnClick="@(() => ViewEndpoints(context))">Endpoints</MudButton>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+
+        <MudTablePager PageSizeOptions="new int[]{10,20,50}" PageSize="pageSize" PageIndex="page-1" OnPageChanged="OnPageChanged" OnPageSizeChanged="OnPageSizeChanged" />
+    </MudPaper>
+    
+    @if (endpointsForUser != null)
+    {
+        <MudPaper Class="pa-3 mt-3" Elevation="2">
+            <MudText Typo="Typo.h6">Endpoint Access</MudText>
+            <MudTable Items="endpointsForUser">
+                <HeaderContent>
+                    <MudTh>Method</MudTh>
+                    <MudTh>Path</MudTh>
+                    <MudTh>Description</MudTh>
+                    <MudTh>Has Access</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.Method</MudTd>
+                    <MudTd>@context.Endpoint</MudTd>
+                    <MudTd>@context.Description</MudTd>
+                    <MudTd>@(context.HasAccess ? "Yes" : "No")</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudPaper>
+    }
 </MudContainer>
 
 @code {
-  string search = string.Empty;
-  PagedResult<UserListItem>? users;
+    List<UserListData> users = new();
+    int page = 1;
+    int pageSize = 20;
+    string search = "";
+    Guid? selectedUserId;
+    List<EndpointAccessDto>? endpointsForUser;
+    List<RoleSummaryDto> allRoles = new();
+    List<PermissionSummaryDto> allPermissions = new();
 
-  protected override async Task OnInitializedAsync()
-  {
-    await LoadUsers();
-  }
-
-  async Task LoadUsers(int page = 1)
-  {
-    try
+    protected override async Task OnInitializedAsync()
     {
-      AttachTokenIfNeeded();
-      users = await Http.GetFromJsonAsync<PagedResult<UserListItem>>(Nav.ToAbsoluteUri($"api/users?page={page}&pageSize=10&q={Uri.EscapeDataString(search)}"));
+        AttachToken();
+        await LoadRoles();
+        await LoadPermissions();
+        await LoadUsers();
     }
-    catch (Exception ex)
+
+    void AttachToken()
     {
-      Snackbar.Add("Failed to load users: " + ex.Message, MudBlazor.Severity.Error);
-      users = new PagedResult<UserListItem>(Enumerable.Empty<UserListItem>(), 0, 1, 10);
+        if (!string.IsNullOrEmpty(TokenProvider.Token))
+            Http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", TokenProvider.Token);
     }
-  }
-
-  void AttachTokenIfNeeded()
-  {
-    if (!string.IsNullOrEmpty(TokenProvider.Token)) Http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", TokenProvider.Token);
-    else Http.DefaultRequestHeaders.Authorization = null;
-  }
-
-  void OpenCreate()
-  {
-    var options = new MudBlazor.DialogOptions { CloseButton = true, MaxWidth = MudBlazor.MaxWidth.Small };
-    var parameters = new MudBlazor.DialogParameters { { "Model", new CreateUserModel() } };
-    var dlg = DialogService.Show<Shared.Dialogs.CreateEditProjectDialog>("New User", parameters, options);
-    _ = dlg.Result.ContinueWith(async t => { if (!t.IsFaulted && t.Result.Data is true) await LoadUsers(); });
-  }
-
-  void EditUser(UserListItem u)
-  {
-    var parameters = new MudBlazor.DialogParameters { { "Model", new UserEditModel { Id = u.Id, Email = u.Email, IsActive = u.IsActive } } };
-    var dlg = DialogService.Show<Shared.Dialogs.CreateEditProjectDialog>("Edit User", parameters);
-  }
-
-  async Task CreateUser()
-  {
-    try
+    
+    async Task LoadUsers()
     {
-      AttachTokenIfNeeded();
-      var dto = new { Username = "", Email = "", Password = "" };
-      var resp = await Http.PostAsJsonAsync(Nav.ToAbsoluteUri("api/users"), dto);
+        var resp = await Http.GetFromJsonAsync<PagedResult<UserListData>>($"api/Users?page={page}&pageSize={pageSize}&q={search}");
+        users = resp?.Items.ToList() ?? new();
     }
-    catch { }
-  }
 
-  async Task ConfirmDelete(Guid id)
-  {
-    var parameters = new MudBlazor.DialogParameters { { "ContentText", $"Are you sure you want to delete this user?" }, { "ButtonText", "Delete" }, { "Color", MudBlazor.Color.Error } };
-    var options = new MudBlazor.DialogOptions { CloseButton = true };
-    var dlg = DialogService.Show<DialogConfirm>("Confirm", parameters, options);
-    var result = await dlg.Result;
-    if (!result.Cancelled)
+    async Task LoadRoles()
     {
-      await DeleteUser(id);
+        allRoles = await Http.GetFromJsonAsync<List<RoleSummaryDto>>("api/Users/roles") ?? new();
     }
-  }
 
-  async Task DeleteUser(Guid id)
-  {
-    try
+    async Task LoadPermissions()
     {
-      AttachTokenIfNeeded();
-      var resp = await Http.DeleteAsync(Nav.ToAbsoluteUri($"api/users/{id}"));
-      if (resp.IsSuccessStatusCode)
-      {
-        Snackbar.Add("User deleted", MudBlazor.Severity.Success);
-        await LoadUsers(users?.Page ?? 1);
-      }
+        allPermissions = await Http.GetFromJsonAsync<List<PermissionSummaryDto>>("api/Users/permissions") ?? new();
     }
-    catch (Exception ex)
+
+    void OnPageChanged(int newPage) { page = newPage + 1; _ = LoadUsers(); }
+    void OnPageSizeChanged(int newSize) { pageSize = newSize; _ = LoadUsers(); }
+    void OnSearchChanged(string s) { search = s ?? ""; _ = LoadUsers(); }
+
+    async Task EditDetails(UserListData u)
     {
-      Snackbar.Add("Error deleting user: " + ex.Message, MudBlazor.Severity.Error);
+        var dto = new UpdateUserDetailsDto { Email = u.Email, Username = u.Username, IsActive = u.IsActive };
+        var result = await DialogService.Show<ArchoCybo.Shared.Dialogs.PromptDialog>("Confirm", new DialogParameters { { "ContentText", $"Update details for {u.Username}?" }, { "ButtonText", "Update" }, { "Color", Color.Primary } }).Result;
+        if (!result.Cancelled)
+        {
+            var ok = await Http.PutAsJsonAsync($"api/Users/{u.Id}/details", dto);
+            if (ok.IsSuccessStatusCode) { Snackbar.Add("Updated user details", Severity.Success); await LoadUsers(); }
+            else { Snackbar.Add("Failed to update", Severity.Error); }
+        }
     }
-  }
 
-  void PreviousUsers()
-  {
-    if (users != null && users.Page > 1) _ = LoadUsers(users.Page - 1);
-  }
+    async Task EditRoles(UserListData u)
+    {
+        selectedUserId = u.Id;
+        var roleIds = allRoles.Where(r => u.Roles.Contains(r.Name)).Select(r => r.Id).ToList();
+        var parameters = new DialogParameters { { "AllRoles", allRoles }, { "SelectedRoleIds", roleIds } };
+        var dialog = DialogService.Show<ArchoCybo.Shared.Dialogs.EditUserRolesDialog>("Edit Roles", parameters);
+        var result = await dialog.Result;
+        if (!result.Cancelled && result.Data is List<Guid> selected)
+        {
+            var ok = await Http.PutAsJsonAsync($"api/Users/{u.Id}/roles", selected);
+            if (ok.IsSuccessStatusCode) { Snackbar.Add("Updated roles", Severity.Success); await LoadUsers(); }
+            else { Snackbar.Add("Failed to update roles", Severity.Error); }
+        }
+    }
 
-  void NextUsers()
-  {
-    if (users != null && (users.Page * users.PageSize < users.TotalCount)) _ = LoadUsers(users.Page + 1);
-  }
+    async Task EditPermissions(UserListData u)
+    {
+        selectedUserId = u.Id;
+        var selectedPermIds = allPermissions.Where(p => u.Permissions.Contains(p.Name)).Select(p => p.Id).ToList();
+        var parameters = new DialogParameters { { "AllPermissions", allPermissions }, { "SelectedPermissionIds", selectedPermIds } };
+        var dialog = DialogService.Show<ArchoCybo.Shared.Dialogs.EditUserPermissionsDialog>("Edit Permissions", parameters);
+        var result = await dialog.Result;
+        if (!result.Cancelled && result.Data is List<Guid> selected)
+        {
+            var dto = new UpdateUserPermissionsDto { UserId = u.Id, AllowedPermissionIds = selected };
+            var ok = await Http.PutAsJsonAsync($"api/Users/{u.Id}/permissions", dto);
+            if (ok.IsSuccessStatusCode) { Snackbar.Add("Updated permissions", Severity.Success); await LoadUsers(); }
+            else { Snackbar.Add("Failed to update permissions", Severity.Error); }
+        }
+    }
 
-  // Models
-  public class UserListItem
-  {
-    public Guid Id { get; set; }
-    public string Username { get; set; } = string.Empty;
-    public string Email { get; set; } = string.Empty;
-    public bool IsActive { get; set; }
-  }
-
-  public class CreateUserModel
-  {
-    [Required]
-    public string Username { get; set; } = string.Empty;
-    [Required]
-    public string Email { get; set; } = string.Empty;
-    [Required]
-    public string Password { get; set; } = string.Empty;
-  }
-
-  public class UserEditModel
-  {
-    public Guid Id { get; set; }
-    public string Email { get; set; } = string.Empty;
-    public bool IsActive { get; set; }
-  }
+    async Task ViewEndpoints(UserListData u)
+    {
+        selectedUserId = u.Id;
+        endpointsForUser = await Http.GetFromJsonAsync<List<EndpointAccessDto>>($"api/Users/{u.Id}/endpoints") ?? new();
+    }
 }

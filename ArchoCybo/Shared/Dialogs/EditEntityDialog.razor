@@ -100,7 +100,7 @@
         var dialog = DialogService.Show<AddPropertyDialog>("Add Property", options);
         var result = await dialog.Result;
         
-        if (!result.Canceled && result.Data != null)
+        if (!result.Cancelled && result.Data != null)
         {
             var data = result.Data;
             var type = data.GetType();
@@ -115,7 +115,7 @@
             // Map string type to Enum
             FieldDataType dataType = FieldDataType.String;
             if (Enum.TryParse<FieldDataType>(pTypeStr, true, out var dt)) dataType = dt;
-            else if (pTypeStr == "int") dataType = FieldDataType.Int;
+            else if (pTypeStr == "int") dataType = FieldDataType.Integer;
             else if (pTypeStr == "bool") dataType = FieldDataType.Boolean;
             else if (pTypeStr == "DateTime") dataType = FieldDataType.DateTime;
             else if (pTypeStr == "decimal") dataType = FieldDataType.Decimal;
@@ -143,7 +143,7 @@
          var dialog = DialogService.Show<AddRelationDialog>("Add Relation", parameters, options);
          var result = await dialog.Result;
          
-         if (!result.Canceled && result.Data != null)
+         if (!result.Cancelled && result.Data != null)
          {
             var data = result.Data;
             var type = data.GetType();

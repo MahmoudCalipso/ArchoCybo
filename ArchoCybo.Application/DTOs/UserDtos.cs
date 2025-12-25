@@ -32,3 +32,6 @@ public class EndpointAccessDto
 }
 
 public record UserFilterQuery(string? Search, int Page = 1, int PageSize = 20);
+
+public record RoleSummaryDto(Guid Id, string Name, string DisplayName, int Priority, bool IsSystemRole);
+public record PermissionSummaryDto(Guid Id, string Name, string DisplayName, string Category, string Resource, string Action, bool IsSystemPermission);

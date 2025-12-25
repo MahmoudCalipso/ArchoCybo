@@ -11,149 +11,41 @@
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 @inject IJSRuntime JS
+@inject IConfiguration Config
+
+@code {
+    [Parameter]
+    public string? ProjectId { get; set; }
+
+    JsonElement? project = null;
+    List<JsonElement> entities = new();
+    List<JsonElement> queries = new();
+}
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
-    @if (project != null)
-    {
-        <MudGrid Class="mb-6">
-            <MudItem xs="12" md="8">
-                <MudText Typo="Typo.h3" Class="mb-1" Style="font-weight:700">@project.GetProperty("name").GetString()</MudText>
+    <MudGrid Class="mb-6">
+        <MudItem xs="12" md="8">
+            @if (project.HasValue)
+            {
+                <MudText Typo="Typo.h3" Class="mb-1" Style="font-weight:700">@project.Value.GetProperty("name").GetString()</MudText>
                 <MudText Typo="Typo.subtitle1" Color="Color.Secondary">
-                    @project.GetProperty("description").GetString()
+                    @project.Value.GetProperty("description").GetString()
                 </MudText>
-                <MudChip T="string" Color="Color.Primary" Size="Size.Small" Class="mt-2">.NET 10</MudChip>
-                <MudChip T="string" Color="Color.Info" Size="Size.Small" Class="mt-2">Clean Architecture</MudChip>
-            </MudItem>
-            <MudItem xs="12" md="4" Class="d-flex justify-end align-center gap-2">
-                <MudButton Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.Download" OnClick="DownloadProject" Size="Size.Large" Class="rounded-lg">
-                    Download
-                </MudButton>
-                <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.ArrowBack" Href="/my-projects" Size="Size.Large" Class="rounded-lg">
-                    Back
-                </MudButton>
-            </MudItem>
-        </MudGrid>
-
-        <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" PanelClass="mt-6" Color="Color.Transparent" SliderColor="Color.Primary" KeepPanelsAlive="true">
-            <MudTabPanel Text="Entities" Icon="@Icons.Material.Filled.DataObject">
-                <MudPaper Class="pa-6" Elevation="3" Style="background-color: var(--mud-palette-surface); border-radius: 12px;">
-                    <MudStack Direction="Row" Spacing="2" Class="mb-4 align-center justify-space-between">
-                        <MudText Typo="Typo.h5">Data Models</MudText>
-                        <MudStack Direction="Row" Spacing="2">
-                            <MudButton StartIcon="@Icons.Material.Filled.Add" Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenAddEntityDialog">
-                                Add Entity
-                            </MudButton>
-                            <MudButton StartIcon="@Icons.Material.Filled.Schema" Variant="Variant.Outlined" Color="Color.Secondary" Href="@($"/project/{ProjectId}/schema")">
-                                Visual Designer
-                            </MudButton>
-                        </MudStack>
-                    </MudStack>
-                    <MudDivider Class="mb-4"/>
-
-                    @if (entities != null && entities.Count > 0)
-                    {
-                        <MudGrid>
-                            @foreach (var entity in entities)
-                            {
-                                <MudItem xs="12" sm="6" md="4" lg="3">
-                                    <MudCard Class="h-100 hover-card" Elevation="2" @onclick="() => ManageProperties(entity)" Style="cursor:pointer; background-color: #27272f;">
-                                        <MudCardHeader>
-                                            <CardHeaderAvatar>
-                                                <MudAvatar Color="Color.Primary" Variant="Variant.Filled">
-                                                    @entity.GetProperty("name").GetString()?.Substring(0, 1)
-                                                </MudAvatar>
-                                            </CardHeaderAvatar>
-                                            <CardHeaderContent>
-                                                <MudText Typo="Typo.h6">@entity.GetProperty("name").GetString()</MudText>
-                                                <MudText Typo="Typo.caption" Color="Color.Secondary">Entity</MudText>
-                                            </CardHeaderContent>
-                                            <CardHeaderActions>
-                                                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Default" />
-                                            </CardHeaderActions>
-                                        </MudCardHeader>
-                                        <MudCardContent>
-                                                <MudText Typo="Typo.body2" Color="Color.Secondary">Manage properties, relationships, and settings.</MudText>
-                                        </MudCardContent>
-                                    </MudCard>
-                                </MudItem>
-                            }
-                        </MudGrid>
-                    }
-                    else
-                    {
-                        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">No entities found. Create one to get started!</MudAlert>
-                    }
-                </MudPaper>
-            </MudTabPanel>
-
-            <MudTabPanel Text="Queries" Icon="@Icons.Material.Filled.QueryStats">
-                <MudPaper Class="pa-6" Elevation="3" Style="background-color: var(--mud-palette-surface); border-radius: 12px;">
-                    <MudStack Direction="Row" Spacing="2" Class="mb-4 align-center justify-space-between">
-                        <MudText Typo="Typo.h5">Custom Queries</MudText>
-                        <MudButton StartIcon="@Icons.Material.Filled.Add" Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenQueryBuilder">
-                            New Query
-                        </MudButton>
-                    </MudStack>
-                    <MudDivider Class="mb-4"/>
-
-                    @if (queries != null && queries.Count > 0)
-                    {
-                        <MudGrid>
-                            @foreach (var query in queries)
-                            {
-                                <MudItem xs="12" sm="6" md="4">
-                                    <MudCard Class="h-100 hover-card" Elevation="2" Style="background-color: #27272f; cursor:pointer;" @onclick="() => ViewQuery(query)">
-                                        <MudCardHeader>
-                                            <CardHeaderAvatar>
-                                                <MudAvatar Color="Color.Secondary" Variant="Variant.Filled">Q</MudAvatar>
-                                            </CardHeaderAvatar>
-                                            <CardHeaderContent>
-                                                <MudText Typo="Typo.h6">@query.GetProperty("name").GetString()</MudText>
-                                                <MudText Typo="Typo.caption">Custom Query</MudText>
-                                            </CardHeaderContent>
-                                        </MudCardHeader>
-                                    </MudCard>
-                                </MudItem>
-                            }
-                        </MudGrid>
-                    }
-                    else
-                    {
-                         <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">No custom queries yet. Use the Query Builder to create one.</MudAlert>
-                    }
-                </MudPaper>
-            </MudTabPanel>
-            
-            <MudTabPanel Text="Settings" Icon="@Icons.Material.Filled.Settings">
-                <MudPaper Class="pa-6" Elevation="3" Style="background-color: var(--mud-palette-surface); border-radius: 12px;">
-                    <MudText Typo="Typo.h5">Project Settings</MudText>
-                    <MudDivider Class="my-4"/>
-                    <MudGrid>
-                        <MudItem xs="12" md="6">
-                            <MudText Typo="Typo.subtitle2">Database Type</MudText>
-                            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
-                                @project.GetProperty("database_type").GetString()
-                            </MudText>
-
-                            <MudText Typo="Typo.subtitle2">Backend Framework</MudText>
-                            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
-                                @project.GetProperty("backend_framework").GetString()
-                            </MudText>
-
-                            <MudText Typo="Typo.subtitle2">Architecture</MudText>
-                            <MudText Typo="Typo.body2" Color="Color.Secondary">
-                                @project.GetProperty("architecture_style").GetString()
-                            </MudText>
-                        </MudItem>
-                    </MudGrid>
-                </MudPaper>
-            </MudTabPanel>
-        </MudTabs>
-    }
-    else
-    {
-        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
-    }
+            }
+            else
+            {
+                <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+            }
+        </MudItem>
+        <MudItem xs="12" md="4" Class="d-flex justify-end align-center gap-2">
+            <MudButton Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.Download" OnClick="DownloadProject" Size="Size.Large" Class="rounded-lg">
+                Download
+            </MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.ArrowBack" Href="/my-projects" Size="Size.Large" Class="rounded-lg">
+                Back
+            </MudButton>
+        </MudItem>
+    </MudGrid>
 </MudContainer>
 
 <style>
@@ -167,13 +59,6 @@
 </style>
 
 @code {
-    [Parameter]
-    public string? ProjectId { get; set; }
-
-    JsonElement? project;
-    List<JsonElement>? entities;
-    List<JsonElement>? queries;
-
     void AttachToken()
     {
         if (!string.IsNullOrEmpty(TokenProvider.Token))
@@ -184,7 +69,7 @@
     {
         try
         {
-            var projectData = await Http.GetFromJsonAsync<JsonElement>(Nav.ToAbsoluteUri($"api/projects/{ProjectId}"));
+            var projectData = await Http.GetFromJsonAsync<JsonElement>($"api/projects/{ProjectId}");
             project = projectData;
         }
         catch (Exception ex)
@@ -197,7 +82,7 @@
     {
         try
         {
-            entities = await Http.GetFromJsonAsync<List<JsonElement>>(Nav.ToAbsoluteUri($"api/projects/{ProjectId}/entities"));
+            entities = await Http.GetFromJsonAsync<List<JsonElement>>($"api/projects/{ProjectId}/entities");
         }
         catch
         {
@@ -209,7 +94,7 @@
     {
         try
         {
-            queries = await Http.GetFromJsonAsync<List<JsonElement>>(Nav.ToAbsoluteUri($"api/projects/{ProjectId}/queries"));
+            queries = await Http.GetFromJsonAsync<List<JsonElement>>($"api/projects/{ProjectId}/queries");
         }
         catch
         {
@@ -260,7 +145,7 @@
         try
         {
             AttachToken();
-            var resp = await Http.PostAsync(Nav.ToAbsoluteUri($"api/projects/{ProjectId}/generate"), null);
+            var resp = await Http.PostAsync($"api/projects/{ProjectId}/generate", null);
 
             if (resp.IsSuccessStatusCode)
             {
@@ -292,8 +177,9 @@
         await LoadQueries();
 
         // SignalR
+        var baseUrl = (Config["ApiBaseUrl"] ?? Nav.BaseUri).TrimEnd('/');
         hub = new Microsoft.AspNetCore.SignalR.Client.HubConnectionBuilder()
-            .WithUrl(Nav.ToAbsoluteUri("/hubs/notifications"))
+            .WithUrl($"{baseUrl}/hubs/notifications")
             .WithAutomaticReconnect()
             .Build();
 
@@ -317,3 +203,4 @@
             try { await hub.DisposeAsync(); } catch { }
         }
     }
+}

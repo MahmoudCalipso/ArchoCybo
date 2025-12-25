@@ -14,6 +14,8 @@ using ArchoCybo.Application.Services.Generation;
 using Hangfire;
 using Hangfire.SqlServer;
 using Microsoft.Extensions.DependencyInjection;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,10 +23,13 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers(options => 
 {
     options.Filters.Add<ArchoCybo.WebApi.Filters.DynamicPermissionFilter>();
+})
+.AddJsonOptions(o =>
+{
+    o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    o.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+    o.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
 });
-
-// MediatR (CQRS)
-builder.Services.AddMediatR(typeof(LoginHandler).Assembly);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -100,6 +105,15 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
 });
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("Frontend", policy =>
+        policy
+            .AllowAnyOrigin()
+            .AllowAnyHeader()
+            .AllowAnyMethod());
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -114,14 +128,14 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ArchoCyboDbContext>();
     db.Database.Migrate();
-    DbSeeder.SeedAsync(db).GetAwaiter().GetResult();
-
-    // Discover endpoints
     var discovery = scope.ServiceProvider.GetRequiredService<EndpointDiscoveryService>();
     discovery.DiscoverEndpointsAsync().GetAwaiter().GetResult();
+    DbSeeder.SeedAsync(db).GetAwaiter().GetResult();
 }
 
 app.UseHttpsRedirection();
+
+app.UseCors("Frontend");
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -144,3 +158,4 @@ public class JwtSettings
     public string Key { get; set; } = "secret";
     public string Issuer { get; set; } = "archocybo";
 }
+

@@ -4,6 +4,8 @@ using ArchoCybo.Application.DTOs;
 using ArchoCybo.Domain.Entities.Security;
 using Microsoft.EntityFrameworkCore;
 using ArchoCybo.SharedKernel.Security;
+using System.ComponentModel.DataAnnotations;
+using System.Text.RegularExpressions;
 
 namespace ArchoCybo.Application.Services;
 
@@ -18,12 +20,38 @@ public class UserService : IUserService
 
     public async Task<Guid> CreateUserAsync(CreateUserDto dto)
     {
+        // Basic field validation
+        if (string.IsNullOrWhiteSpace(dto.Username)) throw new Exception("Username is required");
+        if (string.IsNullOrWhiteSpace(dto.Email)) throw new Exception("Email is required");
+        if (string.IsNullOrWhiteSpace(dto.Password)) throw new Exception("Password is required");
+
+        var emailValidator = new EmailAddressAttribute();
+        if (!emailValidator.IsValid(dto.Email)) throw new Exception("Invalid email format");
+
+        // Enforce password strength: min 8, upper, lower, digit, special
+        if (dto.Password.Length < 8 ||
+            !Regex.IsMatch(dto.Password, "[A-Z]") ||
+            !Regex.IsMatch(dto.Password, "[a-z]") ||
+            !Regex.IsMatch(dto.Password, "[0-9]") ||
+            !Regex.IsMatch(dto.Password, "[^A-Za-z0-9]"))
+        {
+            throw new Exception("Password must be at least 8 characters and include upper, lower, digit, and special character");
+        }
+
+        // Uniqueness checks
+        var usernameExists = await _uow.Repository<User>().Query().AnyAsync(u => u.Username == dto.Username);
+        if (usernameExists) throw new Exception("Username is already taken");
+        var emailExists = await _uow.Repository<User>().Query().AnyAsync(u => u.Email == dto.Email);
+        if (emailExists) throw new Exception("Email is already in use");
+
         var user = new User
         {
-            Username = dto.Username,
-            Email = dto.Email,
+            Username = dto.Username.Trim(),
+            Email = dto.Email.Trim(),
             PasswordHash = PasswordHasher.Hash(dto.Password),
-            IsActive = true
+            IsActive = true,
+            EmailConfirmed = false,
+            EmailConfirmationToken = Guid.NewGuid().ToString("N")
         };
         await _uow.Repository<User>().AddAsync(user);
         await _uow.SaveChangesAsync();
@@ -335,5 +363,17 @@ public class UserService : IUserService
         var items = await q.OrderBy(u => u.Username).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
         var dtos = items.Select(u => new UserListData(u.Id, u.Username, u.Email, u.IsActive, u.UserRoles.Select(ur => ur.Role.Name), u.UserPermissions.Select(up => up.Permission.Name))).ToList();
         return new PagedResult<UserListData>(dtos, total, page, pageSize);
+    }
+
+    public async Task<List<RoleSummaryDto>> GetAllRolesAsync()
+    {
+        var roles = await _uow.Repository<Role>().Query().ToListAsync();
+        return roles.Select(r => new RoleSummaryDto(r.Id, r.Name, r.DisplayName, r.Priority, r.IsSystemRole)).ToList();
+    }
+
+    public async Task<List<PermissionSummaryDto>> GetAllPermissionsAsync()
+    {
+        var perms = await _uow.Repository<Permission>().Query().ToListAsync();
+        return perms.Select(p => new PermissionSummaryDto(p.Id, p.Name, p.DisplayName, p.Category, p.Resource, p.Action, p.IsSystemPermission)).ToList();
     }
 }

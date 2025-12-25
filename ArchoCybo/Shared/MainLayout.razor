@@ -34,32 +34,38 @@
             </AuthorizeView>
         </MudAppBar>
 
-        <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Never" Elevation="0" Variant="DrawerVariant.Responsive" Class="mud-drawer-sliced">
-            <MudDrawerHeader Class="d-flex align-center justify-center py-4">
-                 <MudIcon Icon="@Icons.Material.Filled.Code" Size="Size.Large" Color="Color.Primary" />
-                 <MudText Typo="Typo.h5" Class="ml-2" Style="font-weight: 800;">AC</MudText>
-            </MudDrawerHeader>
-            <MudNavMenu Class="mt-4">
-                <MudText Typo="Typo.overline" Class="px-4 my-2 text-muted">Main</MudText>
-                <MudNavLink Href="/" Match="Microsoft.AspNetCore.Components.Routing.NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard" Class="nav-link-sliced">Dashboard</MudNavLink>
-                
-                <MudText Typo="Typo.overline" Class="px-4 my-2 mt-4 text-muted">Builder</MudText>
-                <MudNavLink Href="/projects" Icon="@Icons.Material.Filled.FolderCopy" Class="nav-link-sliced">Projects</MudNavLink>
-                <MudNavLink Href="/database" Icon="@Icons.Material.Filled.Storage" Class="nav-link-sliced">DB Explorer</MudNavLink>
-                
-                <MudText Typo="Typo.overline" Class="px-4 my-2 mt-4 text-muted">Tools</MudText>
-                <MudNavLink Href="/query-builder" Icon="@Icons.Material.Filled.QueryStats" Class="nav-link-sliced">Query Builder</MudNavLink>
-                <MudNavLink Href="/users" Icon="@Icons.Material.Filled.People" Class="nav-link-sliced">Users</MudNavLink>
-            </MudNavMenu>
-            
-            <div class="mt-auto pa-4">
-                <MudCard Class="upgrade-card pa-3" Elevation="0">
-                    <MudText Typo="Typo.subtitle2" Color="Color.Inherit"><b>Pro Version</b></MudText>
-                    <MudText Typo="Typo.caption" Class="d-block mb-2">Unlock all generators</MudText>
-                    <MudButton Variant="Variant.Filled" Color="Color.Secondary" Size="Size.Small" FullWidth="true" Class="rounded-lg">Upgrade</MudButton>
-                </MudCard>
-            </div>
-        </MudDrawer>
+        <AuthorizeView>
+            <Authorized>
+                <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Never" Elevation="0" Variant="DrawerVariant.Responsive" Class="mud-drawer-sliced">
+                    <MudDrawerHeader Class="d-flex align-center justify-center py-4">
+                         <MudIcon Icon="@Icons.Material.Filled.Code" Size="Size.Large" Color="Color.Primary" />
+                         <MudText Typo="Typo.h5" Class="ml-2" Style="font-weight: 800;">AC</MudText>
+                    </MudDrawerHeader>
+                    <MudNavMenu Class="mt-4">
+                        <MudText Typo="Typo.overline" Class="px-4 my-2 text-muted">Main</MudText>
+                        <MudNavLink Href="/" Match="Microsoft.AspNetCore.Components.Routing.NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard" Class="nav-link-sliced">Dashboard</MudNavLink>
+                        
+                        <MudText Typo="Typo.overline" Class="px-4 my-2 mt-4 text-muted">Builder</MudText>
+                        <MudNavLink Href="/projects" Icon="@Icons.Material.Filled.FolderCopy" Class="nav-link-sliced">Projects</MudNavLink>
+                        <MudNavLink Href="/database" Icon="@Icons.Material.Filled.Storage" Class="nav-link-sliced">DB Explorer</MudNavLink>
+                        
+                        <MudText Typo="Typo.overline" Class="px-4 my-2 mt-4 text-muted">Tools</MudText>
+                        <MudNavLink Href="/query-builder" Icon="@Icons.Material.Filled.QueryStats" Class="nav-link-sliced">Query Builder</MudNavLink>
+                        <MudNavLink Href="/users" Icon="@Icons.Material.Filled.People" Class="nav-link-sliced">Users</MudNavLink>
+                    </MudNavMenu>
+                    
+                    <div class="mt-auto pa-4">
+                        <MudCard Class="upgrade-card pa-3" Elevation="0">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Inherit"><b>Pro Version</b></MudText>
+                            <MudText Typo="Typo.caption" Class="d-block mb-2">Unlock all generators</MudText>
+                            <MudButton Variant="Variant.Filled" Color="Color.Secondary" Size="Size.Small" FullWidth="true" Class="rounded-lg">Upgrade</MudButton>
+                        </MudCard>
+                    </div>
+                </MudDrawer>
+            </Authorized>
+            <NotAuthorized>
+            </NotAuthorized>
+        </AuthorizeView>
 
         <MudMainContent Class="mud-main-content-sliced">
             <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="px-4 py-6">

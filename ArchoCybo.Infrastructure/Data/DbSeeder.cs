@@ -31,66 +31,102 @@ public static class DbSeeder
             await db.SaveChangesAsync();
         }
 
-        if (!db.EndpointPermissions.Any())
+        // Assign base role permissions
+        var superUserRole = db.Roles.FirstOrDefault(r => r.Name == "SuperUser");
+        var userAgentRole = db.Roles.FirstOrDefault(r => r.Name == "UserAgent");
+        var userRole = db.Roles.FirstOrDefault(r => r.Name == "User");
+        var permView = db.Permissions.FirstOrDefault(p => p.Name == "projects.view");
+        var permGenerate = db.Permissions.FirstOrDefault(p => p.Name == "projects.generate");
+        var permUsersManage = db.Permissions.FirstOrDefault(p => p.Name == "users.manage");
+        var permFull = db.Permissions.FirstOrDefault(p => p.Name == "projects.fullAccess");
+
+        if (!db.RolePermissions.Any())
         {
-            var manageUsersPerm = db.Permissions.FirstOrDefault(p => p.Name == "users.manage");
-            if (manageUsersPerm != null)
+            var rp = new List<RolePermission>();
+            if (superUserRole != null)
             {
-                var endpoints = new[]
-                {
-                    new EndpointPermission 
-                    { 
-                        Controller = "Users", 
-                        Action = "GetAll", 
-                        HttpMethod = "GET", 
-                        EndpointPath = "api/Users",
-                        RequiresAuthentication = true,
-                        RequiredPermissionId = manageUsersPerm.Id
-                    },
-                    new EndpointPermission 
-                    { 
-                        Controller = "Users", 
-                        Action = "Create", 
-                        HttpMethod = "POST", 
-                        EndpointPath = "api/Users",
-                        RequiresAuthentication = true,
-                        RequiredPermissionId = manageUsersPerm.Id
-                    },
-                    new EndpointPermission 
-                    { 
-                        Controller = "Users", 
-                        Action = "Update", 
-                        HttpMethod = "PUT", 
-                        EndpointPath = "api/Users",
-                        RequiresAuthentication = true,
-                        RequiredPermissionId = manageUsersPerm.Id
-                    },
-                    new EndpointPermission 
-                    { 
-                        Controller = "Users", 
-                        Action = "Delete", 
-                        HttpMethod = "DELETE", 
-                        EndpointPath = "api/Users/{id}",
-                        RequiresAuthentication = true,
-                        RequiredPermissionId = manageUsersPerm.Id
-                    }
-                };
-                db.EndpointPermissions.AddRange(endpoints);
+                if (permFull != null) rp.Add(new RolePermission { RoleId = superUserRole.Id, PermissionId = permFull.Id });
+                if (permView != null) rp.Add(new RolePermission { RoleId = superUserRole.Id, PermissionId = permView.Id });
+                if (permGenerate != null) rp.Add(new RolePermission { RoleId = superUserRole.Id, PermissionId = permGenerate.Id });
+                if (permUsersManage != null) rp.Add(new RolePermission { RoleId = superUserRole.Id, PermissionId = permUsersManage.Id });
+            }
+            if (userAgentRole != null)
+            {
+                if (permView != null) rp.Add(new RolePermission { RoleId = userAgentRole.Id, PermissionId = permView.Id });
+            }
+            // 'User' role intentionally has no permissions to restrict access
+            if (rp.Count > 0)
+            {
+                db.RolePermissions.AddRange(rp);
                 await db.SaveChangesAsync();
             }
         }
 
-        if (!db.Users.Any())
+        // Link discovered endpoints to a global API permission and grant to SuperUser
+        var apiAll = db.Permissions.FirstOrDefault(p => p.Name == "api.all");
+        if (apiAll == null)
         {
-            var admin = new User { Email = "admin@archocybo.local", Username = "admin", PasswordHash = PasswordHasher.Hash("ChangeMe123!"), IsActive = true };
-            db.Users.Add(admin);
+            apiAll = new Permission
+            {
+                Name = "api.all",
+                DisplayName = "All API Endpoints",
+                Description = "Grants access to all authenticated API endpoints",
+                Category = "API",
+                Resource = "API",
+                Action = "All",
+                Type = ArchoCybo.Domain.Enums.PermissionType.API,
+                IsSystemPermission = true
+            };
+            db.Permissions.Add(apiAll);
             await db.SaveChangesAsync();
-
-            // assign SuperUser role
-            var superRole = db.Roles.First(r => r.Name == "SuperUser");
-            db.UserRoles.Add(new UserRole { UserId = admin.Id, RoleId = superRole.Id });
         }
 
+        var protectedEndpoints = db.EndpointPermissions.Where(ep => ep.RequiresAuthentication).ToList();
+        foreach (var ep in protectedEndpoints)
+        {
+            if (ep.RequiredPermissionId == null)
+            {
+                ep.RequiredPermissionId = apiAll.Id;
+            }
+        }
+        if (protectedEndpoints.Count > 0)
+        {
+            await db.SaveChangesAsync();
+        }
+
+        // Drop all users and related links to ensure a clean state
+        var allUserIds = db.Users.Select(u => u.Id).ToList();
+        if (allUserIds.Count > 0)
+        {
+            db.UserSessions.RemoveRange(db.UserSessions.Where(us => allUserIds.Contains(us.UserId)));
+            db.UserRoles.RemoveRange(db.UserRoles.Where(ur => allUserIds.Contains(ur.UserId)));
+            db.UserPermissions.RemoveRange(db.UserPermissions.Where(up => allUserIds.Contains(up.UserId)));
+            db.Users.RemoveRange(db.Users.Where(u => allUserIds.Contains(u.Id)));
+            await db.SaveChangesAsync();
+        }
+
+        var admin = new User
+        {
+            Email = "admin@archocybo.local",
+            Username = "admin",
+            PasswordHash = PasswordHasher.Hash("ChangeMe123!"),
+            IsActive = true,
+            EmailConfirmed = true,
+            FailedLoginAttempts = 0,
+            LockoutEnd = null,
+            FirstName = "System",
+            LastName = "Administrator",
+            PhoneNumber = "+0000000000"
+        };
+        db.Users.Add(admin);
+        await db.SaveChangesAsync();
+
+        var superRole = db.Roles.First(r => r.Name == "SuperUser");
+        db.UserRoles.Add(new UserRole { UserId = admin.Id, RoleId = superRole.Id });
+        await db.SaveChangesAsync();
+
+        // Directly grant global API permission to admin (in addition to role)
+        db.UserPermissions.Add(new UserPermission { UserId = admin.Id, PermissionId = apiAll.Id });
         await db.SaveChangesAsync();
     }
 }

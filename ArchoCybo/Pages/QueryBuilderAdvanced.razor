@@ -206,7 +206,7 @@
     {
         try
         {
-            entities = await Http.GetFromJsonAsync<List<JsonElement>>(Nav.ToAbsoluteUri("api/Metadata/entities"));
+            entities = await Http.GetFromJsonAsync<List<JsonElement>>("api/Metadata/entities");
         }
         catch (Exception ex)
         {
@@ -220,7 +220,7 @@
 
         try
         {
-            columns = await Http.GetFromJsonAsync<List<JsonElement>>(Nav.ToAbsoluteUri($"api/Metadata/entity/{selectedEntity}/columns"));
+            columns = await Http.GetFromJsonAsync<List<JsonElement>>($"api/Metadata/entity/{selectedEntity}/columns");
             selectedColumns.Clear();
             if (columns != null)
             {
@@ -288,7 +288,7 @@
         {
             AttachToken();
             var dto = new QueryDto(queryText, null, 30);
-            var resp = await Http.PostAsJsonAsync(Nav.ToAbsoluteUri("api/query/execute"), dto);
+            var resp = await Http.PostAsJsonAsync("api/query/execute", dto);
 
             if (resp.IsSuccessStatusCode)
             {

@@ -57,7 +57,7 @@
 
         try
         {
-            var resp = await Http.PostAsJsonAsync(Nav.ToAbsoluteUri("api/auth/login"), new { Username = username, Password = password });
+            var resp = await Http.PostAsJsonAsync("api/auth/login", new { Username = username, Password = password });
 
             if (resp.IsSuccessStatusCode)
             {

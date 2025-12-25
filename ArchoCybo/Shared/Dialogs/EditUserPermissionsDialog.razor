@@ -1,0 +1,39 @@
+@using MudBlazor
+@using ArchoCybo.Application.DTOs
+
+<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.h6" Class="mb-3">Edit Permissions</MudText>
+        <MudSelect T="Guid" SelectedValues="selected" MultiSelection="true" Label="Permissions" Variant="Variant.Outlined" Class="mb-3" @ref="selectRef">
+            @foreach (var p in AllPermissions)
+            {
+                <MudSelectItem Value="@p.Id">@p.DisplayName</MudSelectItem>
+            }
+        </MudSelect>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Text" OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Save">Save</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public List<PermissionSummaryDto> AllPermissions { get; set; } = new();
+    [Parameter] public List<Guid> SelectedPermissionIds { get; set; } = new();
+
+    HashSet<Guid> selected = new();
+    MudSelect<Guid>? selectRef;
+
+    protected override void OnInitialized()
+    {
+        selected = SelectedPermissionIds.ToHashSet();
+    }
+
+    void Cancel() => MudDialog.Cancel();
+    void Save()
+    {
+        var values = selectRef?.SelectedValues?.ToList() ?? selected.ToList();
+        MudDialog.Close(DialogResult.Ok(values));
+    }
+}

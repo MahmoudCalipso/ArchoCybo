@@ -132,6 +132,26 @@ public class UsersController : ControllerBase
         var result = await _userService.GetUserEndpointAccessAsync(id);
         return Ok(result);
     }
+    
+    /// <summary>Gets all roles</summary>
+    [HttpGet("roles")]
+    [Authorize(Policy = "AdminOnly")]
+    [ProducesResponseType(typeof(List<RoleSummaryDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetRoles()
+    {
+        var roles = await _userService.GetAllRolesAsync();
+        return Ok(roles);
+    }
+    
+    /// <summary>Gets all permissions</summary>
+    [HttpGet("permissions")]
+    [Authorize(Policy = "AdminOnly")]
+    [ProducesResponseType(typeof(List<PermissionSummaryDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetPermissions()
+    {
+        var perms = await _userService.GetAllPermissionsAsync();
+        return Ok(perms);
+    }
 
     /// <summary>Deletes a user</summary>
     [HttpDelete("{id}")]

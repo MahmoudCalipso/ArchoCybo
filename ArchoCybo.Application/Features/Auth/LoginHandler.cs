@@ -4,6 +4,7 @@ using ArchoCybo.Domain.Entities;
 using ArchoCybo.Domain.Entities.Security;
 using Microsoft.Extensions.Configuration;
 using ArchoCybo.SharedKernel.Security;
+using Microsoft.EntityFrameworkCore;
 
 namespace ArchoCybo.Application.Features.Auth;
 
@@ -21,12 +22,32 @@ public class LoginHandler : IRequestHandler<LoginCommand, string>
     public async Task<string> Handle(LoginCommand request, CancellationToken cancellationToken)
     {
         var userRepo = _uow.Repository<User>();
-        var users = await userRepo.ListAsync();
-        var user = users.FirstOrDefault(u => u.Username == request.Username);
+        var user = await userRepo.Query()
+            .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
+            .FirstOrDefaultAsync(u => u.Username == request.Username, cancellationToken);
         if (user == null) throw new Exception("Invalid credentials");
 
+        if (!user.IsActive) throw new Exception("Account is inactive");
+        if (user.IsLockedOut) throw new Exception("Account is locked. Try again later");
+        if (!user.EmailConfirmed) throw new Exception("Email not confirmed");
+
         // Verify hashed password
-        if (!PasswordHasher.Verify(request.Password, user.PasswordHash)) throw new Exception("Invalid credentials");
+        if (!PasswordHasher.Verify(request.Password, user.PasswordHash))
+        {
+            user.FailedLoginAttempts += 1;
+            if (user.FailedLoginAttempts >= 5)
+            {
+                user.LockoutEnd = DateTime.UtcNow.AddMinutes(15);
+            }
+            userRepo.Update(user);
+            await _uow.SaveChangesAsync();
+            throw new Exception("Invalid credentials");
+        }
+
+        user.FailedLoginAttempts = 0;
+        user.LastLoginAt = DateTime.UtcNow;
+        userRepo.Update(user);
+        await _uow.SaveChangesAsync();
 
         var jwtKey = _config["Jwt:Key"] ?? "secret";
         var jwtIssuer = _config["Jwt:Issuer"] ?? "archocybo";

@@ -170,7 +170,7 @@
         var dialog = DialogService.Show<AddEntityDialog>("Add Entity", parameters);
         var result = await dialog.Result;
         
-        if (!result.Canceled && result.Data != null)
+        if (!result.Cancelled && result.Data != null)
         {
              // Actually create via API
              dynamic data = result.Data;

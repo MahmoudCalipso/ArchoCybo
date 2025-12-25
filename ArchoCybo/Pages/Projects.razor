@@ -116,7 +116,7 @@
         try
         {
             AttachTokenIfNeeded();
-            var res = await Http.GetFromJsonAsync<PagedResult<ProjectListItemDto>>(Nav.ToAbsoluteUri($"api/project/paged?page={page}&pageSize={pageSize}&q={Uri.EscapeDataString(search)}"));
+            var res = await Http.GetFromJsonAsync<PagedResult<ProjectListItemDto>>($"api/project/paged?page={page}&pageSize={pageSize}&q={Uri.EscapeDataString(search)}");
             if (res != null)
             {
                 projects = res.Items.Select(x => new ProjectListItem { Id = x.Id, Name = x.Name, DatabaseType = x.DatabaseType.ToString(), Status = x.Status.ToString(), CreatedAt = x.CreatedAt }).ToList();
@@ -165,7 +165,7 @@
         try
         {
             AttachTokenIfNeeded();
-            var resp = await Http.PostAsync(Nav.ToAbsoluteUri($"api/generation/{id}/generate"), null);
+            var resp = await Http.PostAsync($"api/generation/{id}/generate", null);
             if (resp.IsSuccessStatusCode || resp.StatusCode == System.Net.HttpStatusCode.Accepted)
             {
                 Snackbar.Add("Generation started", MudBlazor.Severity.Success);
@@ -202,7 +202,7 @@
         try
         {
             AttachTokenIfNeeded();
-            var resp = await Http.DeleteAsync(Nav.ToAbsoluteUri($"api/project/{selected.Id}"));
+            var resp = await Http.DeleteAsync($"api/project/{selected.Id}");
             if (resp.IsSuccessStatusCode)
             {
                 Snackbar.Add("Project deleted", MudBlazor.Severity.Success);

@@ -104,7 +104,7 @@
   {
     try
     {
-      var projects = await Http.GetFromJsonAsync<List<object>>(Nav.ToAbsoluteUri("api/project"));
+      var projects = await Http.GetFromJsonAsync<List<object>>("api/project");
       if (projects != null)
       {
         projectsCount = projects.Count;
@@ -114,7 +114,7 @@
 
     try
     {
-      var users = await Http.GetFromJsonAsync<List<object>>(Nav.ToAbsoluteUri("api/users"));
+      var users = await Http.GetFromJsonAsync<List<object>>("api/users");
       if (users != null)
       {
         usersCount = users.Count;
@@ -125,7 +125,7 @@
     try
     {
       // try to fetch last generated project
-      var projs = await Http.GetFromJsonAsync<List<JsonElement>>(Nav.ToAbsoluteUri("api/project"));
+      var projs = await Http.GetFromJsonAsync<List<JsonElement>>("api/project");
       if (projs != null && projs.Count > 0)
       {
         var last = projs.OrderByDescending(p => p.GetProperty("CreatedAt").GetDateTime()).FirstOrDefault();
