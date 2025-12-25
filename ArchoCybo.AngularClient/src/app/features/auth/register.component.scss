@@ -1,0 +1,5 @@
+.container { display: flex; justify-content: center; align-items: center; min-height: 100vh; background: linear-gradient(135deg, #eef2ff 0%, #f8fafc 100%); padding: 2rem; }
+.full { width: 100%; }
+mat-card { width: 440px; border-radius: 14px; box-shadow: 0 12px 30px rgba(79,70,229,0.08); padding-bottom: .5rem; }
+mat-card h2 { margin: .5rem 0 1rem; font-weight: 700; letter-spacing: .3px; }
+.actions { display: flex; justify-content: space-between; margin-top: 1rem; }

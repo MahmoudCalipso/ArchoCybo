@@ -13,6 +13,7 @@ using ArchoCybo.WebApi.Services;
 using ArchoCybo.Application.Services.Generation;
 using Hangfire;
 using Hangfire.SqlServer;
+using Microsoft.Extensions.DependencyInjection;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -42,7 +43,9 @@ builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"))
 builder.Services.AddDbContext<ArchoCyboDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-builder.Services.AddScoped<ArchoCybo.Application.Interfaces.IUnitOfWork, ArchoCybo.Infrastructure.UnitOfWork.UnitOfWork>();
+builder.Services.AddScoped<ArchoCybo.Application.Interfaces.IUnitOfWork>(sp =>
+    new ArchoCybo.Infrastructure.UnitOfWork.UnitOfWork(
+        sp.GetRequiredService<ArchoCyboDbContext>()));
 
 // Register services
 builder.Services.AddScoped<IUserService, UserService>();
@@ -51,6 +54,8 @@ builder.Services.AddScoped<IQueryService, QueryService>();
 
 // Project generator
 builder.Services.AddScoped<ProjectGeneratorService>();
+builder.Services.AddScoped<BackendCodeGeneratorService>();
+builder.Services.AddScoped<EndpointDiscoveryService>();
 
 // Background queue and worker (in-memory fallback)
 builder.Services.AddSingleton<IBackgroundJobQueue, BackgroundJobQueue>();
@@ -108,7 +113,12 @@ if (app.Environment.IsDevelopment())
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ArchoCyboDbContext>();
+    db.Database.Migrate();
     DbSeeder.SeedAsync(db).GetAwaiter().GetResult();
+
+    // Discover endpoints
+    var discovery = scope.ServiceProvider.GetRequiredService<EndpointDiscoveryService>();
+    discovery.DiscoverEndpointsAsync().GetAwaiter().GetResult();
 }
 
 app.UseHttpsRedirection();
@@ -123,6 +133,9 @@ app.MapHangfireDashboard();
 
 app.MapControllers();
 app.MapHub<NotificationHub>("/hubs/notifications");
+
+// Recurring endpoint discovery
+Hangfire.RecurringJob.AddOrUpdate<EndpointDiscoveryService>("sync-endpoints", d => d.DiscoverEndpointsAsync(), Hangfire.Cron.Minutely);
 
 app.Run();
 

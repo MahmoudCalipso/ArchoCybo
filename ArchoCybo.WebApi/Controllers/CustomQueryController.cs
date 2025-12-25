@@ -23,7 +23,12 @@ public class CustomQueryController : ControllerBase
     [Authorize]
     public async Task<IActionResult> Create([FromBody] CreateCustomQueryDto dto)
     {
-        var id = await _queryService.CreateCustomQueryAsync(dto);
+        var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+        {
+            return Unauthorized();
+        }
+        var id = await _queryService.CreateCustomQueryAsync(dto, userId);
         await _publisher.PublishProjectUpdatedAsync(dto.ProjectId);
         return CreatedAtAction(nameof(GetByProject), new { projectId = dto.ProjectId }, new { id });
     }

@@ -15,5 +15,9 @@ public interface IUserService
     // CRUD
     Task<Guid> CreateUserAsync(CreateUserDto dto);
     Task UpdateUserAsync(UpdateUserDto dto);
+    Task UpdateUserDetailsAsync(Guid userId, UpdateUserDetailsDto dto);
+    Task UpdateUserPermissionsAsync(Guid userId, UpdateUserPermissionsDto dto);
+    Task<List<EndpointAccessDto>> GetUserEndpointAccessAsync(Guid userId);
+    Task UpdateUserRolesAsync(Guid userId, List<Guid> roleIds);
     Task DeleteUserAsync(Guid userId);
 }

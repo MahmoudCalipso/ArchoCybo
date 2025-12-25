@@ -15,9 +15,9 @@ public class QueryService : IQueryService
         _uow = uow;
     }
 
-    public async Task<Guid> CreateCustomQueryAsync(CreateCustomQueryDto dto)
+    public async Task<Guid> CreateCustomQueryAsync(CreateCustomQueryDto dto, Guid userId)
     {
-        var q = new CustomQuery { Name = dto.Name, Sql = dto.Sql, ResultSchema = dto.ResultSchema, ProjectId = dto.ProjectId };
+        var q = new CustomQuery { Name = dto.Name, Sql = dto.Sql, ResultSchema = dto.ResultSchema, ProjectId = dto.ProjectId, UserId = userId };
         await _uow.Repository<CustomQuery>().AddAsync(q);
         await _uow.SaveChangesAsync();
         return q.Id;

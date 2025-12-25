@@ -27,6 +27,16 @@ public class UserService : IUserService
         };
         await _uow.Repository<User>().AddAsync(user);
         await _uow.SaveChangesAsync();
+
+        // Assign default 'User' role
+        var roleRepo = _uow.Repository<Role>();
+        var defaultRole = await roleRepo.Query().FirstOrDefaultAsync(r => r.Name == "User");
+        if (defaultRole != null)
+        {
+            var userRole = new UserRole { UserId = user.Id, RoleId = defaultRole.Id };
+            await _uow.Repository<UserRole>().AddAsync(userRole);
+            await _uow.SaveChangesAsync();
+        }
         return user.Id;
     }
 
@@ -48,6 +58,70 @@ public class UserService : IUserService
         if (user == null) throw new Exception("User not found");
         repo.Remove(user);
         await _uow.SaveChangesAsync();
+    }
+
+    public async Task UpdateUserDetailsAsync(Guid userId, UpdateUserDetailsDto dto)
+    {
+        var repo = _uow.Repository<User>();
+        var user = await repo.GetByIdAsync(userId);
+        if (user == null) throw new Exception("User not found");
+
+        user.Email = dto.Email;
+        user.Username = dto.Username;
+        if (!string.IsNullOrEmpty(dto.PasswordHash))
+        {
+            user.PasswordHash = PasswordHasher.Hash(dto.PasswordHash);
+        }
+        user.PhoneNumber = dto.PhoneNumber;
+        user.FirstName = dto.FirstName;
+        user.LastName = dto.LastName;
+        user.Avatar = dto.Avatar;
+        user.IsActive = dto.IsActive;
+
+        repo.Update(user);
+        await _uow.SaveChangesAsync();
+    }
+
+    public async Task UpdateUserPermissionsAsync(Guid userId, UpdateUserPermissionsDto dto)
+    {
+        var repo = _uow.Repository<Domain.Entities.Security.UserPermission>();
+        var existing = await repo.Query().Where(x => x.UserId == userId).ToListAsync();
+        
+        foreach (var item in existing)
+        {
+            repo.Remove(item);
+        }
+
+        foreach (var pid in dto.AllowedPermissionIds)
+        {
+            await repo.AddAsync(new Domain.Entities.Security.UserPermission { UserId = userId, PermissionId = pid });
+        }
+        await _uow.SaveChangesAsync();
+    }
+
+    public async Task<List<EndpointAccessDto>> GetUserEndpointAccessAsync(Guid userId)
+    {
+        var endpoints = await _uow.Repository<EndpointPermission>().Query().Include(e => e.RequiredPermission).ToListAsync();
+        
+        var user = await _uow.Repository<User>().Query()
+            .Include(u => u.UserPermissions)
+            .Include(u => u.UserRoles).ThenInclude(ur => ur.Role).ThenInclude(r => r.RolePermissions)
+            .FirstOrDefaultAsync(u => u.Id == userId);
+
+        if (user == null) throw new Exception("User not found");
+
+        var userPermissionIds = user.UserPermissions.Select(up => up.PermissionId)
+            .Union(user.UserRoles.SelectMany(ur => ur.Role.RolePermissions).Select(rp => rp.PermissionId))
+            .ToHashSet();
+
+        return endpoints.Select(e => new EndpointAccessDto
+        {
+            Endpoint = e.EndpointPath,
+            Method = e.HttpMethod,
+            Description = e.Description ?? "",
+            PermissionId = e.RequiredPermissionId,
+            HasAccess = e.IsPublic || (e.RequiredPermissionId.HasValue && userPermissionIds.Contains(e.RequiredPermissionId.Value))
+        }).ToList();
     }
 
     public async Task<List<UserListData>> GetUsersAsync(UserFilterQuery filter)
@@ -85,6 +159,15 @@ public class UserService : IUserService
         var rolePerms = user.UserRoles.SelectMany(ur => ur.Role.RolePermissions).Select(rp => rp.Permission.Name);
         var directPerms = user.UserPermissions.Select(up => up.Permission.Name);
         return rolePerms.Union(directPerms).Distinct();
+    }
+
+    public async Task UpdateUserRolesAsync(Guid userId, List<Guid> roleIds)
+    {
+        var repo = _uow.Repository<UserRole>();
+        var existing = await repo.Query().Where(x => x.UserId == userId).ToListAsync();
+        foreach (var ur in existing) repo.Remove(ur);
+        foreach (var rid in roleIds) await repo.AddAsync(new UserRole { UserId = userId, RoleId = rid });
+        await _uow.SaveChangesAsync();
     }
 
     public async Task AssignRoleAsync(Guid userId, Guid roleId)

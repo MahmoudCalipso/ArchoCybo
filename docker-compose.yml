@@ -1,0 +1,37 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=Your_strong_password123!
+    ports:
+      - "1433:1433"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P Your_strong_password123! -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  webapi:
+    build:
+      context: .
+      dockerfile: ArchoCybo.WebApi/Dockerfile
+    environment:
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=ArchoCyboDb;User Id=sa;Password=Your_strong_password123!;TrustServerCertificate=True
+      - Jwt__Key=very_secret_key_12345
+      - Jwt__Issuer=ArchoCybo
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+
+  angular:
+    build:
+      context: .
+      dockerfile: ArchoCybo.AngularClient/Dockerfile
+    ports:
+      - "4200:80"
+    depends_on:
+      - webapi

@@ -1,5 +1,6 @@
 using ArchoCybo.Domain.Entities;
 using ArchoCybo.Domain.Entities.Security;
+using ArchoCybo.Domain.Entities.CodeGeneration;
 using Microsoft.EntityFrameworkCore;
 
 namespace ArchoCybo.Infrastructure.Data;
@@ -17,6 +18,12 @@ public class ArchoCyboDbContext : DbContext
     public DbSet<EndpointPermission> EndpointPermissions => Set<EndpointPermission>();
     public DbSet<UserSession> UserSessions => Set<UserSession>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<GeneratedProject> GeneratedProjects => Set<GeneratedProject>();
+    public DbSet<ArchoCybo.Domain.Entities.CustomQuery> CustomQueries => Set<ArchoCybo.Domain.Entities.CustomQuery>();
+    public DbSet<ArchoCybo.Domain.Entities.CodeGeneration.Entity> CodegenEntities => Set<ArchoCybo.Domain.Entities.CodeGeneration.Entity>();
+    public DbSet<Field> Fields => Set<Field>();
+    public DbSet<Relation> Relations => Set<Relation>();
+    public DbSet<Project> Projects => Set<Project>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -98,5 +105,35 @@ public class ArchoCyboDbContext : DbContext
         modelBuilder.Entity<Permission>()
             .HasIndex(p => p.Name)
             .IsUnique();
+
+        // CodeGeneration: Entity -> Project
+        modelBuilder.Entity<ArchoCybo.Domain.Entities.CodeGeneration.Entity>()
+            .HasOne(e => e.Project)
+            .WithMany(p => p.Entities)
+            .HasForeignKey(e => e.ProjectId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // CodeGeneration: Fields collection backed by private field
+        modelBuilder.Entity<ArchoCybo.Domain.Entities.CodeGeneration.Entity>()
+            .HasMany(e => e.Fields)
+            .WithOne(f => f.Entity)
+            .HasForeignKey(f => f.EntityId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // CodeGeneration: Relation -> SourceEntity (navigates to Entity.Relations)
+        modelBuilder.Entity<Relation>()
+            .HasOne(r => r.SourceEntity)
+            .WithMany(e => e.Relations)
+            .HasForeignKey(r => r.SourceEntityId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // CodeGeneration: Relation -> TargetEntity (no navigation to avoid ambiguity)
+        modelBuilder.Entity<Relation>()
+            .HasOne(r => r.TargetEntity)
+            .WithMany()
+            .HasForeignKey(r => r.TargetEntityId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Domain CustomQuery -> optional user/project owned via fields
     }
 }

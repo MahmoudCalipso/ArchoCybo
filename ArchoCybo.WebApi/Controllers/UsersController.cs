@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using ArchoCybo.Application.Interfaces.IServices;
 using ArchoCybo.Application.DTOs;
-using ArchoCybo.Application.Interfaces.IServices;
 
 namespace ArchoCybo.WebApi.Controllers;
 
@@ -43,6 +42,41 @@ public class UsersController : ControllerBase
         await _userService.UpdateUserAsync(dto);
         await _publisher.PublishUserChangedAsync(dto.Id);
         return NoContent();
+    }
+
+    [HttpPut("{id}/details")]
+    [Authorize(Policy = "AdminOnly")]
+    public async Task<IActionResult> UpdateDetails(Guid id, [FromBody] UpdateUserDetailsDto dto)
+    {
+        await _userService.UpdateUserDetailsAsync(id, dto);
+        await _publisher.PublishUserChangedAsync(id);
+        return Ok();
+    }
+
+    [HttpPut("{id}/roles")]
+    [Authorize(Policy = "AdminOnly")]
+    public async Task<IActionResult> UpdateRoles(Guid id, [FromBody] List<Guid> roleIds)
+    {
+        await _userService.UpdateUserRolesAsync(id, roleIds);
+        await _publisher.PublishUserChangedAsync(id);
+        return NoContent();
+    }
+
+    [HttpPut("{id}/permissions")]
+    [Authorize(Policy = "AdminOnly")]
+    public async Task<IActionResult> UpdatePermissions(Guid id, [FromBody] UpdateUserPermissionsDto dto)
+    {
+        dto.UserId = id;
+        await _userService.UpdateUserPermissionsAsync(id, dto);
+        await _publisher.PublishUserChangedAsync(id);
+        return NoContent();
+    }
+    [HttpGet("{id}/endpoints")]
+    [Authorize(Policy = "AdminOnly")]
+    public async Task<IActionResult> GetEndpointAccess(Guid id)
+    {
+        var result = await _userService.GetUserEndpointAccessAsync(id);
+        return Ok(result);
     }
 
     [HttpDelete("{id}")]

@@ -47,7 +47,8 @@ public class ProjectSchemaController : ControllerBase
     public async Task<IActionResult> CreateQuery(Guid projectId, [FromBody] CreateCustomQueryDto dto)
     {
         if (dto.ProjectId != projectId) return BadRequest("ProjectId mismatch");
-        var id = await _queryService.CreateCustomQueryAsync(dto);
+        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? throw new UnauthorizedAccessException());
+        var id = await _queryService.CreateCustomQueryAsync(dto, userId);
         await _publisher.PublishProjectUpdatedAsync(projectId);
         return Ok(new { id });
     }
