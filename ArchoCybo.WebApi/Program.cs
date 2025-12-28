@@ -16,10 +16,13 @@ using Hangfire.SqlServer;
 using Microsoft.Extensions.DependencyInjection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.OpenApi.Models;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// --- 1. CONTROLLERS & JSON ---
 builder.Services.AddControllers(options => 
 {
     options.Filters.Add<ArchoCybo.WebApi.Filters.DynamicPermissionFilter>();
@@ -31,99 +34,132 @@ builder.Services.AddControllers(options =>
     o.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
 });
 
+// --- 2. SWAGGER CONFIG (Auth Support) ---
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(opt =>
+{
+    opt.SwaggerDoc("v1", new OpenApiInfo { Title = "ArchoCybo API", Version = "v1" });
+    
+    // JWT Authorize Button configuration
+    opt.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        In = ParameterLocation.Header,
+        Description = "Paste your JWT token here",
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        BearerFormat = "JWT",
+        Scheme = "bearer"
+    });
 
-// FluentValidation
-builder.Services.AddFluentValidationAutoValidation();
-builder.Services.AddValidatorsFromAssemblyContaining<ArchoCybo.Application.Validators.CreateProjectDtoValidator>();
+    opt.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
 
-// SignalR
+// --- 3. CORS & SIGNALR (Fixes "Failed to Fetch") ---
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("Frontend", policy =>
+    {
+        policy.SetIsOriginAllowed(_ => true) 
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials(); // Essential for SignalR Hubs
+    });
+});
+
 builder.Services.AddSignalR();
 
-// Configuration
+// --- 4. DATA & AUTHENTICATION (Using your AppSettings) ---
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
 
-// Add DbContext and unit of work
 builder.Services.AddDbContext<ArchoCyboDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddScoped<ArchoCybo.Application.Interfaces.IUnitOfWork>(sp =>
-    new ArchoCybo.Infrastructure.UnitOfWork.UnitOfWork(
-        sp.GetRequiredService<ArchoCyboDbContext>()));
+    new ArchoCybo.Infrastructure.UnitOfWork.UnitOfWork(sp.GetRequiredService<ArchoCyboDbContext>()));
 
-// Register services
-builder.Services.AddScoped<IUserService, UserService>();
-builder.Services.AddScoped<IProjectService, ProjectService>();
-builder.Services.AddScoped<IQueryService, QueryService>();
+// Pulling values from your uploaded JSON
+var jwtKey = builder.Configuration["Jwt:Key"] ?? "Default_Fallback_Key_32_Characters_Long";
+var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "ArchoCybo";
+var keyBytes = Encoding.UTF8.GetBytes(jwtKey);
 
-// Project generator
-builder.Services.AddScoped<ProjectGeneratorService>();
-builder.Services.AddScoped<BackendCodeGeneratorService>();
-builder.Services.AddScoped<EndpointDiscoveryService>();
-
-// Background queue and worker (in-memory fallback)
-builder.Services.AddSingleton<IBackgroundJobQueue, BackgroundJobQueue>();
-builder.Services.AddHostedService<ProjectGenerationWorker>();
-
-// Hangfire - persistent job queue
-builder.Services.AddHangfire(config => config.UseSqlServerStorage(builder.Configuration.GetConnectionString("DefaultConnection")));
-builder.Services.AddHangfireServer();
-
-// Hangfire job service
-builder.Services.AddScoped<HangfireJobService>();
-
-// Notification publisher
-builder.Services.AddSingleton<INotificationPublisher, NotificationPublisher>();
-
-// Auth + Swagger auth config
-var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>();
-var key = System.Text.Encoding.UTF8.GetBytes(jwtSettings?.Key ?? "secret");
-
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme;
-})
+builder.Services.AddAuthentication("Bearer")
 .AddJwtBearer(options =>
 {
     options.RequireHttpsMetadata = false;
     options.SaveToken = true;
-    options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+    options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuer = true,
         ValidateAudience = true,
+        ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
-        ValidIssuer = jwtSettings?.Issuer,
-        ValidAudience = jwtSettings?.Issuer,
-        IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(key)
+        ValidIssuer = jwtIssuer,
+        ValidAudience = jwtIssuer,
+        IssuerSigningKey = new SymmetricSecurityKey(keyBytes)
     };
 });
 
+// --- 5. AUTHORIZATION (Dynamic Role/Type List) ---
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
+    // You can add any custom 'Types' or Roles here
+    options.AddPolicy("AdminOnly", policy => 
+        policy.RequireRole("Admin", "SuperUser", "Developer", "Manager"));
 });
 
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("Frontend", policy =>
-        policy
-            .AllowAnyOrigin()
-            .AllowAnyHeader()
-            .AllowAnyMethod());
-});
+// --- 6. APPLICATION SERVICES ---
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IProjectService, ProjectService>();
+builder.Services.AddScoped<IQueryService, QueryService>();
+builder.Services.AddScoped<ProjectGeneratorService>();
+builder.Services.AddScoped<BackendCodeGeneratorService>();
+builder.Services.AddScoped<EndpointDiscoveryService>();
+builder.Services.AddSingleton<IBackgroundJobQueue, BackgroundJobQueue>();
+builder.Services.AddHostedService<ProjectGenerationWorker>();
+
+builder.Services.AddHangfire(config => config.UseSqlServerStorage(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddHangfireServer();
+builder.Services.AddScoped<HangfireJobService>();
+builder.Services.AddSingleton<INotificationPublisher, NotificationPublisher>();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// --- 7. MIDDLEWARE PIPELINE ---
+
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();
+    app.UseSwagger(c =>
+    {
+        c.PreSerializeFilters.Add((swaggerDoc, httpReq) =>
+        {
+            // Forces Swagger to match the exact URL/Port in your browser
+            swaggerDoc.Servers = new List<OpenApiServer> 
+            { 
+                new OpenApiServer { Url = $"{httpReq.Scheme}://{httpReq.Host.Value}" } 
+            };
+        });
+    });
     app.UseSwaggerUI();
 }
 
-// seed data
+// Order is critical: CORS -> Auth -> Routing
+app.UseCors("Frontend");
+
+// app.UseHttpsRedirection(); // Keep commented out for pure HTTP local dev
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+// 8. DB INITIALIZATION & SEEDING
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ArchoCyboDbContext>();
@@ -133,29 +169,21 @@ using (var scope = app.Services.CreateScope())
     DbSeeder.SeedAsync(db).GetAwaiter().GetResult();
 }
 
-app.UseHttpsRedirection();
-
-app.UseCors("Frontend");
-
-app.UseAuthentication();
-app.UseAuthorization();
-
 app.UseHangfireDashboard();
-
-// Map Hangfire Dashboard and configure authorization if needed
 app.MapHangfireDashboard();
-
 app.MapControllers();
 app.MapHub<NotificationHub>("/hubs/notifications");
 
-// Recurring endpoint discovery
-Hangfire.RecurringJob.AddOrUpdate<EndpointDiscoveryService>("sync-endpoints", d => d.DiscoverEndpointsAsync(), Hangfire.Cron.Minutely);
+Hangfire.RecurringJob.AddOrUpdate<EndpointDiscoveryService>(
+    "sync-endpoints", 
+    d => d.DiscoverEndpointsAsync(), 
+    Hangfire.Cron.Minutely);
 
 app.Run();
 
+// Matches your AppSettings structure
 public class JwtSettings
 {
-    public string Key { get; set; } = "secret";
-    public string Issuer { get; set; } = "archocybo";
+    public string Key { get; set; } = string.Empty;
+    public string Issuer { get; set; } = string.Empty;
 }
-

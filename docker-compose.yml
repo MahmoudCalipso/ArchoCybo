@@ -27,11 +27,14 @@ services:
     ports:
       - "8080:8080"
 
-  angular:
+  frontend:
     build:
       context: .
-      dockerfile: ArchoCybo.AngularClient/Dockerfile
-    ports:
-      - "4200:80"
+      dockerfile: ArchoCybo/Dockerfile
+    environment:
+      - ASPNETCORE_URLS=http://+:8081
+      - ApiBaseUrl=http://webapi:8080
     depends_on:
       - webapi
+    ports:
+      - "5170:8081"

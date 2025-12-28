@@ -29,7 +29,7 @@ public class ProjectGeneratorService
         // Load user for folder name
         var userRepo = _uow.Repository<ArchoCybo.Domain.Entities.Security.User>();
         var user = await userRepo.GetByIdAsync(project.OwnerUserId);
-        var userName = user != null ? user.FirstName : "User";
+        var userName = user?.FirstName ?? user?.Username ?? "User";
 
         // Fetch Entities with Fields
         var entityRepo = _uow.Repository<Entity>();

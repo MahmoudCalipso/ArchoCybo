@@ -36,7 +36,7 @@ public class DynamicPermissionFilter : IAsyncAuthorizationFilter
         var actionName = descriptor.ActionName;
         var method = context.HttpContext.Request.Method;
 
-        using var scope = _scopeFactory.CreateScope();
+        await using var scope = _scopeFactory.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<ArchoCyboDbContext>();
         var userService = scope.ServiceProvider.GetRequiredService<IUserService>();
 
