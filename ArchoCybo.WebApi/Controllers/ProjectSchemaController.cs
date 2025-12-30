@@ -100,8 +100,8 @@ public class ProjectSchemaController : ControllerBase
             TableName = dto.TableName ?? dto.Name
         };
 
-        await _uow.Repository<Entity>().AddAsync(entity);
-        await _uow.SaveChangesAsync();
+        var result = await _uow.Repository<Entity>().AddAsync(entity);
+        if (!result.Success) return BadRequest(result.Message);
 
         await _publisher.PublishProjectUpdatedAsync(projectId);
 
@@ -112,11 +112,8 @@ public class ProjectSchemaController : ControllerBase
     public async Task<IActionResult> DeleteEntity(Guid projectId, Guid entityId)
     {
         var repo = _uow.Repository<Entity>();
-        var entity = await repo.GetByIdAsync(entityId);
-        if (entity == null || entity.ProjectId != projectId) return NotFound();
-
-        repo.Remove(entity);
-        await _uow.SaveChangesAsync();
+        var result = await repo.DeleteAsync(entityId);
+        if (!result.Success) return NotFound();
 
         await _publisher.PublishProjectUpdatedAsync(projectId);
 
@@ -127,8 +124,8 @@ public class ProjectSchemaController : ControllerBase
     public async Task<IActionResult> CreateField(Guid projectId, Guid entityId, [FromBody] CreateFieldDto dto)
     {
         var entityRepo = _uow.Repository<Entity>();
-        var entity = await entityRepo.GetByIdAsync(entityId);
-        if (entity == null || entity.ProjectId != projectId) return NotFound();
+        var entityResult = await entityRepo.GetByIdAsync(entityId);
+        if (!entityResult.Success || entityResult.Data!.ProjectId != projectId) return NotFound();
 
         var field = new Field
         {
@@ -141,10 +138,9 @@ public class ProjectSchemaController : ControllerBase
         };
 
         var fieldRepo = _uow.Repository<Field>();
-        await fieldRepo.AddAsync(field);
+        var result = await fieldRepo.AddAsync(field);
+        if (!result.Success) return BadRequest(result.Message);
         
-        await _uow.SaveChangesAsync();
-
         await _publisher.PublishProjectUpdatedAsync(projectId);
 
         return Ok(new { id = field.Id });
@@ -154,11 +150,8 @@ public class ProjectSchemaController : ControllerBase
     public async Task<IActionResult> DeleteField(Guid projectId, Guid entityId, Guid fieldId)
     {
         var fieldRepo = _uow.Repository<Field>();
-        var field = await fieldRepo.GetByIdAsync(fieldId);
-        if (field == null || field.EntityId != entityId) return NotFound();
-
-        fieldRepo.Remove(field);
-        await _uow.SaveChangesAsync();
+        var result = await fieldRepo.DeleteAsync(fieldId);
+        if (!result.Success) return NotFound();
 
         await _publisher.PublishProjectUpdatedAsync(projectId);
 
@@ -169,11 +162,11 @@ public class ProjectSchemaController : ControllerBase
     public async Task<IActionResult> CreateRelation(Guid projectId, Guid entityId, [FromBody] CreateRelationDto dto)
     {
         var entityRepo = _uow.Repository<Entity>();
-        var sourceEntity = await entityRepo.GetByIdAsync(entityId);
-        if (sourceEntity == null || sourceEntity.ProjectId != projectId) return NotFound();
+        var sourceResult = await entityRepo.GetByIdAsync(entityId);
+        if (!sourceResult.Success || sourceResult.Data!.ProjectId != projectId) return NotFound();
         
-        var targetEntity = await entityRepo.GetByIdAsync(dto.TargetEntityId);
-        if (targetEntity == null || targetEntity.ProjectId != projectId) return BadRequest("Target entity not found in project");
+        var targetResult = await entityRepo.GetByIdAsync(dto.TargetEntityId);
+        if (!targetResult.Success || targetResult.Data!.ProjectId != projectId) return BadRequest("Target entity not found in project");
 
         var relation = new Relation
         {
@@ -186,8 +179,8 @@ public class ProjectSchemaController : ControllerBase
         };
 
         var relationRepo = _uow.Repository<Relation>();
-        await relationRepo.AddAsync(relation);
-        await _uow.SaveChangesAsync();
+        var result = await relationRepo.AddAsync(relation);
+        if (!result.Success) return BadRequest(result.Message);
 
         await _publisher.PublishProjectUpdatedAsync(projectId);
 
@@ -198,11 +191,8 @@ public class ProjectSchemaController : ControllerBase
     public async Task<IActionResult> DeleteRelation(Guid projectId, Guid entityId, Guid relationId)
     {
         var relationRepo = _uow.Repository<Relation>();
-        var relation = await relationRepo.GetByIdAsync(relationId);
-        if (relation == null || relation.SourceEntityId != entityId) return NotFound();
-
-        relationRepo.Remove(relation);
-        await _uow.SaveChangesAsync();
+        var result = await relationRepo.DeleteAsync(relationId);
+        if (!result.Success) return NotFound();
 
         await _publisher.PublishProjectUpdatedAsync(projectId);
 

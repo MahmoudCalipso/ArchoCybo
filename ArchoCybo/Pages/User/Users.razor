@@ -1,0 +1,147 @@
+@page "/users"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@using ArchoCybo.Application.DTOs
+@using MudBlazor
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <!-- Header -->
+    <MudStack Direction="Row" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+        <div>
+            <MudText Typo="Typo.h4" Style="color: #d1d5db; font-weight: 700;">Users</MudText>
+            <MudText Typo="Typo.subtitle1" Class="mud-text-secondary">Manage users, roles, and permissions</MudText>
+        </div>
+    </MudStack>
+
+    <!-- Filters Panel -->
+    <MudPaper Class="pa-4 mb-4" Style="background-color: #1f2937; border: 1px solid #374151; border-radius: 12px;" Elevation="0">
+        <MudText Typo="Typo.h6" Class="mb-3" Color="Color.Primary">Filters</MudText>
+        <MudGrid>
+            <MudItem xs="12" md="3">
+                <MudTextField @bind-Value="searchUsername" 
+                              Label="Username" 
+                              Variant="Variant.Outlined" 
+                              Adornment="Adornment.Start" 
+                              AdornmentIcon="@Icons.Material.Filled.Person"
+                              Immediate="true" />
+            </MudItem>
+            <MudItem xs="12" md="3">
+                <MudTextField @bind-Value="searchEmail" 
+                              Label="Email" 
+                              Variant="Variant.Outlined" 
+                              Adornment="Adornment.Start" 
+                              AdornmentIcon="@Icons.Material.Filled.Email"
+                              Immediate="true" />
+            </MudItem>
+            <MudItem xs="12" md="2">
+                <MudDatePicker @bind-Date="createdFrom" 
+                               Label="Created From" 
+                               Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" md="2">
+                <MudDatePicker @bind-Date="createdTo" 
+                               Label="Created To" 
+                               Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" md="2" Class="d-flex align-center gap-2">
+                <MudButton Variant="Variant.Filled" 
+                           Color="Color.Primary" 
+                           OnClick="ApplyFilters"
+                           FullWidth="true">Apply</MudButton>
+                <MudIconButton Icon="@Icons.Material.Filled.Clear" 
+                               Color="Color.Secondary" 
+                               OnClick="ClearFilters" />
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    <!-- Users Table -->
+    <MudPaper Class="pa-4" Style="background-color: #1f2937; border: 1px solid #374151; border-radius: 12px;" Elevation="0">
+        <MudTable Items="users" Hover="true" Dense="true" Class="mud-theme-dark" Elevation="0" Style="background-color: transparent;">
+            <HeaderContent>
+                <MudTh>Username</MudTh>
+                <MudTh>Email</MudTh>
+                <MudTh>Active</MudTh>
+                <MudTh>Roles</MudTh>
+                <MudTh>Actions</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Username"><b>@context.Username</b></MudTd>
+                <MudTd DataLabel="Email">@context.Email</MudTd>
+                <MudTd DataLabel="Active">
+                    @if (context.IsActive)
+                    {
+                        <MudChip Size="Size.Small" Color="Color.Success" Variant="Variant.Outlined">Active</MudChip>
+                    }
+                    else
+                    {
+                        <MudChip Size="Size.Small" Color="Color.Error" Variant="Variant.Outlined">Inactive</MudChip>
+                    }
+                </MudTd>
+                <MudTd DataLabel="Roles">
+                    @{
+                        var rolesList = context.Roles.ToList();
+                        foreach (var role in rolesList.Take(2))
+                        {
+                            <MudChip Size="Size.Small" Color="Color.Primary" Class="mr-1">@role</MudChip>
+                        }
+                        if (rolesList.Count > 2)
+                        {
+                            <MudChip Size="Size.Small" Color="Color.Default">+@(rolesList.Count - 2)</MudChip>
+                        }
+                    }
+                </MudTd>
+                <MudTd DataLabel="Actions">
+                    <MudButtonGroup Variant="Variant.Outlined" Size="Size.Small">
+                        <MudButton Color="Color.Primary" OnClick="@(() => EditDetails(context))">Details</MudButton>
+                        <MudButton Color="Color.Secondary" OnClick="@(() => EditRoles(context))">Roles</MudButton>
+                        <MudButton Color="Color.Info" OnClick="@(() => EditPermissions(context))">Permissions</MudButton>
+                        <MudButton Color="Color.Tertiary" OnClick="@(() => ViewEndpoints(context))">Endpoints</MudButton>
+                    </MudButtonGroup>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+
+        <MudTablePager PageSizeOptions="new int[]{10,20,50}" 
+                       PageSize="pageSize" 
+                       PageIndex="page-1" 
+                       OnPageChanged="OnPageChanged" 
+                       OnPageSizeChanged="OnPageSizeChanged" />
+    </MudPaper>
+    
+    <!-- Endpoint Access Panel -->
+    @if (endpointsForUser != null)
+    {
+        <MudPaper Class="pa-4 mt-4" Style="background-color: #1f2937; border: 1px solid #374151; border-radius: 12px;" Elevation="0">
+            <MudStack Direction="Row" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
+                <MudText Typo="Typo.h6" Color="Color.Primary">Endpoint Access</MudText>
+                <MudIconButton Icon="@Icons.Material.Filled.Close" OnClick="() => endpointsForUser = null" />
+            </MudStack>
+            <MudTable Items="endpointsForUser" Dense="true" Hover="true" Class="mud-theme-dark" Style="background-color: transparent;">
+                <HeaderContent>
+                    <MudTh>Method</MudTh>
+                    <MudTh>Path</MudTh>
+                    <MudTh>Description</MudTh>
+                    <MudTh>Has Access</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>
+                        <MudChip Size="Size.Small" Color="Color.Default">@context.Method</MudChip>
+                    </MudTd>
+                    <MudTd Style="font-family: monospace;">@context.Endpoint</MudTd>
+                    <MudTd>@context.Description</MudTd>
+                    <MudTd>
+                        @if (context.HasAccess)
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" />
+                        }
+                        else
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.Cancel" Color="Color.Error" />
+                        }
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudPaper>
+    }
+</MudContainer>

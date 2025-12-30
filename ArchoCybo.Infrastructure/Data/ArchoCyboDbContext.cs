@@ -19,6 +19,7 @@ public class ArchoCyboDbContext : DbContext
     public DbSet<UserSession> UserSessions => Set<UserSession>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<GeneratedProject> GeneratedProjects => Set<GeneratedProject>();
+    public DbSet<UserGitConfiguration> UserGitConfigurations => Set<UserGitConfiguration>();
     public DbSet<ArchoCybo.Domain.Entities.CustomQuery> CustomQueries => Set<ArchoCybo.Domain.Entities.CustomQuery>();
     public DbSet<ArchoCybo.Domain.Entities.CodeGeneration.Entity> CodegenEntities => Set<ArchoCybo.Domain.Entities.CodeGeneration.Entity>();
     public DbSet<Field> Fields => Set<Field>();
@@ -88,6 +89,13 @@ public class ArchoCyboDbContext : DbContext
             .WithMany(u => u.CreatedAuditLogs)
             .HasForeignKey(al => al.UserId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        // UserGitConfiguration relationship
+        modelBuilder.Entity<UserGitConfiguration>()
+            .HasOne(ug => ug.User)
+            .WithMany()
+            .HasForeignKey(ug => ug.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         // Indexes and constraints can be added here (e.g. unique usernames/emails)
         modelBuilder.Entity<User>()

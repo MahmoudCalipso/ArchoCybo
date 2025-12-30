@@ -23,12 +23,14 @@ public class ProjectGeneratorService
     public async Task<string> GenerateAsync(Guid projectId)
     {
         var repo = _uow.Repository<GeneratedProject>();
-        var project = await repo.GetByIdAsync(projectId);
-        if (project == null) throw new Exception("Project not found");
+        var result = await repo.GetByIdAsync(projectId);
+        if (!result.Success || result.Data == null) throw new Exception("Project not found");
+        var project = result.Data;
 
         // Load user for folder name
         var userRepo = _uow.Repository<ArchoCybo.Domain.Entities.Security.User>();
-        var user = await userRepo.GetByIdAsync(project.OwnerUserId);
+        var userResult = await userRepo.GetByIdAsync(project.OwnerUserId);
+        var user = userResult.Data;
         var userName = user?.FirstName ?? user?.Username ?? "User";
 
         // Fetch Entities with Fields
@@ -56,8 +58,7 @@ public class ProjectGeneratorService
         // Update project status
         project.Status = ArchoCybo.Domain.Enums.ProjectStatus.Generated;
         project.GeneratedAt = DateTime.UtcNow;
-        repo.Update(project);
-        await _uow.SaveChangesAsync();
+        await repo.UpdateAsync(project);
 
         return zipPath;
     }

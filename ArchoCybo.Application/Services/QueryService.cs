@@ -18,8 +18,8 @@ public class QueryService : IQueryService
     public async Task<Guid> CreateCustomQueryAsync(CreateCustomQueryDto dto, Guid userId)
     {
         var q = new CustomQuery { Name = dto.Name, Sql = dto.Sql, ResultSchema = dto.ResultSchema, ProjectId = dto.ProjectId, UserId = userId };
-        await _uow.Repository<CustomQuery>().AddAsync(q);
-        await _uow.SaveChangesAsync();
+        var result = await _uow.Repository<CustomQuery>().AddAsync(q);
+        if (!result.Success) throw new Exception(result.Message);
         return q.Id;
     }
 
@@ -33,21 +33,19 @@ public class QueryService : IQueryService
     public async Task UpdateCustomQueryAsync(UpdateCustomQueryDto dto)
     {
         var repo = _uow.Repository<CustomQuery>();
-        var q = await repo.GetByIdAsync(dto.Id);
-        if (q == null) throw new Exception("CustomQuery not found");
+        var result = await repo.GetByIdAsync(dto.Id);
+        if (!result.Success || result.Data == null) throw new Exception("CustomQuery not found");
+        var q = result.Data;
         q.Name = dto.Name;
         q.Sql = dto.Sql;
         q.ResultSchema = dto.ResultSchema;
-        repo.Update(q);
-        await _uow.SaveChangesAsync();
+        await repo.UpdateAsync(q);
     }
 
     public async Task DeleteCustomQueryAsync(Guid id)
     {
         var repo = _uow.Repository<CustomQuery>();
-        var q = await repo.GetByIdAsync(id);
-        if (q == null) throw new Exception("CustomQuery not found");
-        repo.Remove(q);
-        await _uow.SaveChangesAsync();
+        var result = await repo.DeleteAsync(id);
+        if (!result.Success) throw new Exception("CustomQuery not found");
     }
 }

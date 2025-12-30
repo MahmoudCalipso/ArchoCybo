@@ -5,6 +5,14 @@ using MudBlazor.Services;
 using ArchoCybo.Services;
 using ArchoCybo.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using ArchoCybo.Application.Interfaces.IServices;
+using ArchoCybo.Application.Services.CodeViewer;
+using ArchoCybo.Application.Interfaces;
+using ArchoCybo.Infrastructure.Repositories;
+using ArchoCybo.Domain.Common;
+using ArchoCybo.Domain.Entities.CodeGeneration;
+using ArchoCybo.Domain.Entities.Security;
+using ArchoCybo.Infrastructure.UnitOfWork;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -32,6 +40,13 @@ builder.Services.AddSingleton<TokenProvider>();
 builder.Services.AddScoped<AuthStateProvider>();
 builder.Services.AddScoped<AuthenticationStateProvider>(provider => provider.GetRequiredService<AuthStateProvider>());
 builder.Services.AddScoped<CodeGenerationService>();
+
+// Phase D: Code Viewer
+builder.Services.AddScoped<ICodeViewerService, CodeViewerService>();
+
+// Repository Pattern
+builder.Services.AddScoped(typeof(IRepository<,>), typeof(EfRepository<,>));
+builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 builder.Services.AddAuthorization();
 

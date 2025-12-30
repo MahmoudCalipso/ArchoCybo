@@ -1,0 +1,157 @@
+@page "/create-project"
+@using MudBlazor
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-8">
+    <MudPaper Class="pa-8" Elevation="4" Style="background-color: #1f2937; color: white; min-height: 600px; display: flex; flex-direction: column;">
+        
+        <!-- Header -->
+        <MudText Typo="Typo.h4" Align="Align.Center" Class="mb-2" Style="font-weight: 700;">Create New Project</MudText>
+        <MudText Typo="Typo.subtitle1" Align="Align.Center" Class="mb-8 mud-text-secondary">From concept to code in minutes.</MudText>
+
+        <!-- Stepper Header -->
+        <MudStack Direction="Row" Justify="Justify.Center" AlignItems="AlignItems.Center" Class="mb-8">
+            <!-- Step 1 -->
+            <div style="display: flex; flex-direction: column; align-items: center;">
+                 <div style="@GetStepStyle(0)">1</div>
+                 <MudText Typo="Typo.caption" Class="mt-1" Style="@GetTextStyle(0)">Info</MudText>
+            </div>
+            <div style="width: 50px; height: 2px; background-color: #4b5563;"></div>
+            
+            <!-- Step 2 -->
+            <div style="display: flex; flex-direction: column; align-items: center;">
+                 <div style="@GetStepStyle(1)">2</div>
+                 <MudText Typo="Typo.caption" Class="mt-1" Style="@GetTextStyle(1)">Database</MudText>
+            </div>
+            <div style="width: 50px; height: 2px; background-color: #4b5563;"></div>
+
+            <!-- Step 3 -->
+            <div style="display: flex; flex-direction: column; align-items: center;">
+                 <div style="@GetStepStyle(2)">3</div>
+                 <MudText Typo="Typo.caption" Class="mt-1" Style="@GetTextStyle(2)">Source</MudText>
+            </div>
+            <div style="width: 50px; height: 2px; background-color: #4b5563;"></div>
+
+            <!-- Step 4 -->
+            <div style="display: flex; flex-direction: column; align-items: center;">
+                 <div style="@GetStepStyle(3)">4</div>
+                 <MudText Typo="Typo.caption" Class="mt-1" Style="@GetTextStyle(3)">Review</MudText>
+            </div>
+        </MudStack>
+
+        <!-- Content Area -->
+        <div style="flex-grow: 1;">
+            @switch (activeStepIndex)
+            {
+                case 0:
+                    <MudStack Spacing="4" Class="mx-auto" Style="max-width: 500px;">
+                        <MudText Typo="Typo.h6">Project Details</MudText>
+                        <MudTextField @bind-Value="model.Name" Label="Project Name" Variant="Variant.Outlined" Required="true" TextChanged="() => ValidateStep()" />
+                        <MudTextField @bind-Value="model.Description" Label="Description" Variant="Variant.Outlined" Lines="3" />
+                    </MudStack>
+                    break;
+                case 1:
+                    <MudStack Spacing="4" Class="mx-auto" Style="max-width: 800px;">
+                        <MudText Typo="Typo.h6" Align="Align.Center">Select Database</MudText>
+                        <MudGrid Justify="Justify.Center">
+                            @foreach (var db in new[] { "SQL Server", "PostgreSQL", "MySQL", "MongoDB" })
+                            {
+                                <MudItem xs="6" md="3">
+                                    <MudPaper Elevation="@(selectedDatabase == db ? 8 : 2)" 
+                                              Class="pa-4 d-flex flex-column align-center cursor-pointer db-card" 
+                                              Style="@($"background-color: {(selectedDatabase == db ? "#374151" : "#111827")}; border: 2px solid {(selectedDatabase == db ? "#a855f7" : "transparent")}; transition: all 0.2s;")"
+                                              @onclick="() => SelectDatabase(db)">
+                                        <MudIcon Icon="@Icons.Material.Filled.Storage" Size="Size.Large" Color="@(selectedDatabase == db ? Color.Primary : Color.Default)" Class="mb-3" />
+                                        <MudText>@db</MudText>
+                                    </MudPaper>
+                                </MudItem>
+                            }
+                        </MudGrid>
+                    </MudStack>
+                    break;
+                case 2:
+                    <MudStack Spacing="4" Class="mx-auto" Style="max-width: 600px;">
+                        <MudText Typo="Typo.h6" Align="Align.Center">Data Source</MudText>
+                        <MudToggleGroup T="string" Value="@selectedSourceType" ValueChanged="SelectSource" Color="Color.Primary" Class="mb-4" Style="justify-content: center;">
+                            <MudToggleItem Value="@("New")">New (Clean)</MudToggleItem>
+                            <MudToggleItem Value="@("ConnectionString")">Existing DB</MudToggleItem>
+                            <MudToggleItem Value="@("Upload")">Upload Schema</MudToggleItem>
+                        </MudToggleGroup>
+
+                        @if (selectedSourceType == "ConnectionString")
+                        {
+                            <MudTextField @bind-Value="connectionString" Label="Connection String" Variant="Variant.Outlined" TextChanged="() => ValidateStep()" />
+                            <MudAlert Severity="Severity.Info">We will reverse engineer your database to create entities.</MudAlert>
+                        }
+                        else if (selectedSourceType == "Upload")
+                        {
+                        <MudFileUpload T="IBrowserFile" FilesChanged="UploadFiles">
+                                <ActivatorContent>
+                                    <MudButton HtmlTag="label"
+                                               Variant="Variant.Filled"
+                                               Color="Color.Primary"
+                                               StartIcon="@Icons.Material.Filled.CloudUpload">
+                                        Upload .sql or .json
+                                    </MudButton>
+                                </ActivatorContent>
+                            </MudFileUpload>
+                            @if (uploadedFile != null)
+                            {
+                                <MudText>Selected: @uploadedFile.Name</MudText>
+                            }
+                        }
+                        else
+                        {
+                            <MudAlert Severity="Severity.Success">Start with a blank canvas and design your schema visually.</MudAlert>
+                        }
+                    </MudStack>
+                    break;
+                case 3:
+                     <MudStack Spacing="4" Class="mx-auto" Style="max-width: 500px;">
+                        <MudText Typo="Typo.h5" Align="Align.Center">Ready to Go?</MudText>
+                        <MudPaper Class="pa-4" Style="background-color: #111827;">
+                            <MudList Clickable="false">
+                                <MudListItem Icon="@Icons.Material.Filled.Check" Text="@($"Name: {model.Name}")" />
+                                <MudListItem Icon="@Icons.Material.Filled.Check" Text="@($"Database: {selectedDatabase}")" />
+                                <MudListItem Icon="@Icons.Material.Filled.Check" Text="@($"Source: {selectedSourceType}")" />
+                            </MudList>
+                        </MudPaper>
+                    </MudStack>
+                    break;
+            }
+        </div>
+
+        <!-- Actions -->
+        <MudDivider Class="my-6" />
+        <MudStack Direction="Row" Justify="Justify.SpaceBetween">
+            <MudButton Variant="Variant.Outlined" Disabled="@(activeStepIndex == 0)" OnClick="PreviousStep">Back</MudButton>
+            
+            @if (activeStepIndex < 3)
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!isStepValid)" OnClick="NextStep">Next</MudButton>
+            }
+            else
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Success" Disabled="@isLoading" OnClick="FinishWizard">
+                    @if (isLoading) { <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="mr-2"/> }
+                    Create Project
+                </MudButton>
+            }
+        </MudStack>
+
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private string GetStepStyle(int index) {
+        var isActive = activeStepIndex >= index;
+        var color = isActive ? "#a855f7" : "#4b5563";
+        return $"width: 32px; height: 32px; border-radius: 50%; background-color: {color}; display: flex; align-items: center; justify-content: center; font-weight: bold; color: white;";
+    }
+
+    private string GetTextStyle(int index) {
+        var isActive = activeStepIndex >= index;
+        var color = isActive ? "#a855f7" : "#4b5563";
+        return $"color: {color}";
+    }
+}

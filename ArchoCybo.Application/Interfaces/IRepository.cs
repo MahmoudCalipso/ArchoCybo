@@ -1,18 +1,29 @@
+using ArchoCybo.Domain.Common;
+using ArchoCybo.Application.Models.Common;
+
 namespace ArchoCybo.Application.Interfaces;
 
-using System.Linq;
-
-public interface IRepository<T> where T : class
+public interface IRepository<T, TFilter>
+    where T : class
+    where TFilter : BaseFilter
 {
-    Task<T?> GetByIdAsync(Guid id);
-    Task<IEnumerable<T>> ListAsync();
-    Task AddAsync(T entity);
-    void Update(T entity);
-    void Remove(T entity);
+    // ---------- READ ----------
+    Task<RepositoryResult<T>> GetByIdAsync(Guid id);
 
-    // Querying support - return an IQueryable for composing queries
+    Task<RepositoryResult<IEnumerable<T>>> GetAllAsync();
+
+    Task<RepositoryResult<IEnumerable<T>>> GetAllAsNoTrackingAsync();
+
+    Task<RepositoryResult<PaginatedResult<T>>> GetPagedAsync(
+        TFilter filter,
+        PaginationRequest pagination);
+
     IQueryable<T> Query();
 
-    // Returns all entities without tracking (useful for read-only operations)
-    Task<IEnumerable<T>> AllAsync();
+    // ---------- WRITE ----------
+    Task<RepositoryResult<T>> AddAsync(T entity);
+
+    Task<RepositoryResult> UpdateAsync(T entity);
+
+    Task<RepositoryResult> DeleteAsync(Guid id);
 }

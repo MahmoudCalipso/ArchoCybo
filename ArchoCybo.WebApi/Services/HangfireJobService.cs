@@ -33,7 +33,6 @@ public class HangfireJobService
         };
 
         await _uow.Repository<BackgroundJob>().AddAsync(job);
-        await _uow.SaveChangesAsync();
 
         try
         {
@@ -42,20 +41,21 @@ public class HangfireJobService
 
             // Update GeneratedProject entity status
             var projRepo = _uow.Repository<GeneratedProject>();
-            var project = await projRepo.GetByIdAsync(projectId);
-            if (project != null)
+            var result = await projRepo.GetByIdAsync(projectId);
+            if (result.Success && result.Data != null)
             {
+                var project = result.Data;
                 project.Status = ArchoCybo.Domain.Enums.ProjectStatus.Generated;
                 project.GeneratedAt = DateTime.UtcNow;
                 // store artifact path in GenerationOptions as JSON
                 var meta = new { ArtifactZip = zipPath };
                 project.GenerationOptions = System.Text.Json.JsonSerializer.Serialize(meta);
-                projRepo.Update(project);
+                await projRepo.UpdateAsync(project);
             }
 
             job.Status = BackgroundJobStatus.Completed;
             job.CompletedAt = DateTime.UtcNow;
-            await _uow.SaveChangesAsync();
+            await _uow.Repository<BackgroundJob>().UpdateAsync(job);
 
             // notify clients
             await _publisher.PublishProjectUpdatedAsync(projectId);
@@ -65,7 +65,7 @@ public class HangfireJobService
             job.Status = BackgroundJobStatus.Failed;
             job.LastError = ex.Message;
             job.CompletedAt = DateTime.UtcNow;
-            await _uow.SaveChangesAsync();
+            await _uow.Repository<BackgroundJob>().UpdateAsync(job);
             // rethrow so Hangfire records failure
             throw;
         }

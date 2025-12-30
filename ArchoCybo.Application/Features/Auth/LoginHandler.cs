@@ -39,14 +39,14 @@ public class LoginHandler : IRequestHandler<LoginCommand, string>
             {
                 user.LockoutEnd = DateTime.UtcNow.AddMinutes(15);
             }
-            userRepo.Update(user);
+            await userRepo.UpdateAsync(user);
             await _uow.SaveChangesAsync();
             throw new Exception("Invalid credentials");
         }
 
         user.FailedLoginAttempts = 0;
         user.LastLoginAt = DateTime.UtcNow;
-        userRepo.Update(user);
+        await userRepo.UpdateAsync(user);
         await _uow.SaveChangesAsync();
 
         var jwtKey = _config["Jwt:Key"] ?? "secret";

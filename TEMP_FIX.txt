@@ -1,0 +1,24 @@
+    public async Task<List<ValidationSuggestion>> SuggestValidationRules(Entity entity)
+    {
+        var fieldsInfo = string.Join("\n", entity.Fields.Select(f => 
+            $"- {f.Name} ({f.DataType}): Required={!f.IsNullable}"));
+
+        var prompt = $@"You are a data validation expert. For entity '{entity.Name}' with fields:
+{fieldsInfo}
+
+Suggest appropriate validation rules (FluentValidation style).
+
+Respond with JSON:
+{{
+  ""validations"": [
+    {{
+      ""field"": ""FieldName"",
+      ""rules"": [""NotEmpty()"", ""MaximumLength(100)"", ""EmailAddress()""],
+      ""errorMessage"": ""Custom error message""
+    }}
+  ]
+}}";
+
+        var response = await CallOpenAI(prompt);
+        return ParseValidationSuggestions(response);
+    }

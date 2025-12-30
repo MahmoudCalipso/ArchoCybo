@@ -11,6 +11,11 @@ using FluentValidation.AspNetCore;
 using ArchoCybo.WebApi.Hubs;
 using ArchoCybo.WebApi.Services;
 using ArchoCybo.Application.Services.Generation;
+using ArchoCybo.Application.Services.CodeViewer;
+using ArchoCybo.Application.Interfaces;
+using ArchoCybo.Infrastructure.Repositories;
+using ArchoCybo.Infrastructure.UnitOfWork;
+using ArchoCybo.Domain.Common;
 using Hangfire;
 using Hangfire.SqlServer;
 using Microsoft.Extensions.DependencyInjection;
@@ -125,6 +130,24 @@ builder.Services.AddScoped<BackendCodeGeneratorService>();
 builder.Services.AddScoped<EndpointDiscoveryService>();
 builder.Services.AddSingleton<IBackgroundJobQueue, BackgroundJobQueue>();
 builder.Services.AddHostedService<ProjectGenerationWorker>();
+
+// Phase D: Code Viewer
+builder.Services.AddScoped<ICodeViewerService, CodeViewerService>();
+
+// Repository Pattern
+builder.Services.AddScoped(typeof(IRepository<,>), typeof(EfRepository<,>));
+builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+// AI/LLM Integration
+builder.Services.AddScoped<ArchoCybo.Application.Services.AI.OpenAIService>(sp =>
+{
+    var apiKey = builder.Configuration["OpenAI:ApiKey"] ?? "";
+    var model = builder.Configuration["OpenAI:Model"] ?? "gpt-4";
+    return new ArchoCybo.Application.Services.AI.OpenAIService(apiKey, model);
+});
+
+// Git Integration
+builder.Services.AddScoped<ArchoCybo.Application.Interfaces.IServices.IGitService, ArchoCybo.Application.Services.Git.GitHubService>();
 
 builder.Services.AddHangfire(config => config.UseSqlServerStorage(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.AddHangfireServer();

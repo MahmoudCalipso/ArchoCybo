@@ -59,8 +59,9 @@ public class GenerationController : ControllerBase
     {
         // find project by id and return the zip stored in GenerationOptions
         var repo = HttpContext.RequestServices.GetRequiredService<ArchoCybo.Application.Interfaces.IUnitOfWork>().Repository<ArchoCybo.Domain.Entities.CodeGeneration.GeneratedProject>();
-        var project = repo.GetByIdAsync(id).GetAwaiter().GetResult();
-        if (project == null) return NotFound();
+        var result = repo.GetByIdAsync(id).GetAwaiter().GetResult();
+        if (!result.Success || result.Data == null) return NotFound();
+        var project = result.Data;
 
         if (string.IsNullOrEmpty(project.GenerationOptions)) return NotFound();
         try

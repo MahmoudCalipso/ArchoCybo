@@ -1,0 +1,166 @@
+@using MudBlazor
+
+<!-- Floating AI Assistant Button -->
+<MudFab Color="Color.Secondary" 
+        StartIcon="@Icons.Material.Filled.AutoAwesome" 
+        Style="position: fixed; bottom: 24px; right: 24px; z-index: 1000;"
+        OnClick="TogglePanel"
+        title="AI Assistant" />
+
+<!-- AI Assistant Drawer -->
+<MudDrawer @bind-Open="isOpen" 
+           Anchor="Anchor.Right" 
+           Elevation="2" 
+           Width="480px"
+           Style="background-color: #1f2937;">
+    
+    <MudDrawerHeader>
+        <MudStack Direction="Row" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <div>
+                <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Color="Color.Primary" Class="mr-2" />
+                <MudText Typo="Typo.h6" Inline="true" Style="color: #d1d5db;">AI Assistant</MudText>
+            </div>
+            <MudIconButton Icon="@Icons.Material.Filled.Close" OnClick="TogglePanel" />
+        </MudStack>
+    </MudDrawerHeader>
+
+    <div style="padding: 16px;">
+        <!-- Tabs -->
+        <MudTabs @bind-ActivePanelIndex="activeTab" Centered="true" Color="Color.Primary">
+            <MudTabPanel Text="Generate Entities" Icon="@Icons.Material.Filled.TableChart">
+                <MudStack Spacing="3" Class="mt-4">
+                    <MudAlert Severity="Severity.Info" Dense="true">
+                        Describe your application and let AI generate database entities for you!
+                    </MudAlert>
+
+                    <MudTextField @bind-Value="userPrompt" 
+                                  Label="Describe your app" 
+                                  Placeholder="e.g., Create a blog system with posts, comments, and categories"
+                                  Variant="Variant.Outlined"
+                                  Lines="4"
+                                  Immediate="true" />
+
+                    <MudButton Variant="Variant.Filled" 
+                               Color="Color.Primary" 
+                               FullWidth="true"
+                               OnClick="GenerateEntities"
+                               Disabled="isLoading">
+                        @if (isLoading)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        }
+                        Generate Entities
+                    </MudButton>
+
+                    @if (suggestedEntities.Any())
+                    {
+                        <MudText Typo="Typo.subtitle1" Class="mt-4">Suggestions (@suggestedEntities.Count entities):</MudText>
+                        <div style="max-height: 400px; overflow-y: auto;">
+                            @foreach (var entity in suggestedEntities)
+                            {
+                                <MudPaper Class="pa-3 mb-2" Elevation="1" Style="background-color: #374151;">
+                                    <MudText Typo="Typo.h6" Color="Color.Primary">@entity.Name</MudText>
+                                    <MudText Typo="Typo.caption" Class="mb-2">@entity.Description</MudText>
+                                    <MudText Typo="Typo.body2" Style="font-family: monospace; font-size: 12px;">
+                                        @foreach (var field in entity.Fields)
+                                        {
+                                            <div>• @field.Name: @field.DataType @(field.IsRequired ? "(Required)" : "") @(field.IsUnique ? "(Unique)" : "")</div>
+                                        }
+                                    </MudText>
+                                </MudPaper>
+                            }
+                        </div>
+
+                        <MudButton Variant="Variant.Outlined" 
+                                   Color="Color.Secondary" 
+                                   FullWidth="true"
+                                   OnClick="GenerateRelationships">
+                            Next: Generate Relationships
+                        </MudButton>
+                    }
+                </MudStack>
+            </MudTabPanel>
+
+            <MudTabPanel Text="Relationships" Icon="@Icons.Material.Filled.AccountTree">
+                <MudStack Spacing="3" Class="mt-4">
+                    <MudAlert Severity="Severity.Info" Dense="true">
+                        AI will analyze your entities and suggest logical relationships
+                    </MudAlert>
+
+                    <MudButton Variant="Variant.Filled" 
+                               Color="Color.Primary" 
+                               FullWidth="true"
+                               OnClick="GenerateRelationships"
+                               Disabled="isLoading || !suggestedEntities.Any()">
+                        @if (isLoading)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        }
+                        Generate Relationships
+                    </MudButton>
+
+                    @if (suggestedRelationships.Any())
+                    {
+                        <MudText Typo="Typo.subtitle1" Class="mt-4">Suggestions (@suggestedRelationships.Count):</MudText>
+                        <div style="max-height: 400px; overflow-y: auto;">
+                            @foreach (var rel in suggestedRelationships)
+                            {
+                                <MudPaper Class="pa-3 mb-2" Elevation="1" Style="background-color: #374151;">
+                                    <MudText Typo="Typo.body1" Color="Color.Primary">
+                                        <b>@rel.FromEntity</b> → <b>@rel.ToEntity</b>
+                                    </MudText>
+                                    <MudChip Size="Size.Small" Color="Color.Secondary">@rel.Type</MudChip>
+                                    <MudText Typo="Typo.caption" Class="mt-1">FK: @rel.ForeignKeyField</MudText>
+                                    <MudText Typo="Typo.body2" Class="mt-1">@rel.Description</MudText>
+                                </MudPaper>
+                            }
+                        </div>
+                    }
+                </MudStack>
+            </MudTabPanel>
+
+            <MudTabPanel Text="Query Optimizer" Icon="@Icons.Material.Filled.Speed">
+                <MudStack Spacing="3" Class="mt-4">
+                    <MudAlert Severity="Severity.Info" Dense="true">
+                        Paste your LINQ or SQL query for AI-powered optimization suggestions
+                    </MudAlert>
+
+                    <MudTextField @bind-Value="userPrompt" 
+                                  Label="Your Query" 
+                                  Placeholder="Paste your LINQ or SQL query here"
+                                  Variant="Variant.Outlined"
+                                  Lines="6"
+                                  Immediate="true" />
+
+                    <MudButton Variant="Variant.Filled" 
+                               Color="Color.Primary" 
+                               FullWidth="true"
+                               OnClick="OptimizeQuery"
+                               Disabled="isLoading">
+                        @if (isLoading)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        }
+                        Optimize Query
+                    </MudButton>
+
+                    @if (!string.IsNullOrEmpty(optimizationResult))
+                    {
+                        <MudText Typo="Typo.subtitle1" Class="mt-4">AI Suggestions:</MudText>
+                        <MudPaper Class="pa-3" Elevation="1" Style="background-color: #374151; max-height: 400px; overflow-y: auto;">
+                            <MudText Typo="Typo.body2" Style="white-space: pre-wrap; font-family: monospace; font-size: 13px;">
+                                @optimizationResult
+                            </MudText>
+                        </MudPaper>
+                    }
+                </MudStack>
+            </MudTabPanel>
+        </MudTabs>
+
+        <!-- Actions -->
+        <MudStack Direction="Row" Justify="Justify.SpaceBetween" Class="mt-6">
+            <MudButton Variant="Variant.Text" OnClick="ClearResults">Clear</MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="TogglePanel">Close</MudButton>
+        </MudStack>
+    </div>
+</MudDrawer>

@@ -1,4 +1,6 @@
 using ArchoCybo.Application.Interfaces;
+using ArchoCybo.Infrastructure.Repositories;
+using ArchoCybo.Domain.Common;
 using Microsoft.EntityFrameworkCore;
 
 namespace ArchoCybo.Infrastructure.UnitOfWork;
@@ -6,24 +8,32 @@ namespace ArchoCybo.Infrastructure.UnitOfWork;
 public class UnitOfWork : IUnitOfWork
 {
     private readonly DbContext _context;
-    private readonly Dictionary<Type, object> _repositories = new();
+    private readonly Dictionary<(Type, Type), object> _repositories = new();
 
     public UnitOfWork(DbContext context)
     {
         _context = context;
     }
 
-    public IRepository<T> Repository<T>() where T : class
+    public IRepository<T, BaseFilter> Repository<T>() where T : class
     {
-        var type = typeof(T);
-        if (!_repositories.ContainsKey(type))
+        return Repository<T, BaseFilter>();
+    }
+
+    public IRepository<T, TFilter> Repository<T, TFilter>() 
+        where T : class 
+        where TFilter : BaseFilter
+    {
+        var key = (typeof(T), typeof(TFilter));
+
+        if (!_repositories.ContainsKey(key))
         {
-            var repoType = typeof(ArchoCybo.Infrastructure.Repositories.Repository<>).MakeGenericType(type);
+            var repoType = typeof(EfRepository<T, TFilter>);
             var repo = Activator.CreateInstance(repoType, _context);
-            _repositories[type] = repo!;
+            _repositories[key] = repo!;
         }
 
-        return (IRepository<T>)_repositories[type]!;
+        return (IRepository<T, TFilter>)_repositories[key]!;
     }
 
     public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

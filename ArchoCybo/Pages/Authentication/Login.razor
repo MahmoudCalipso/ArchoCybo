@@ -1,0 +1,39 @@
+@page "/login"
+@using ArchoCybo.Services
+@using MudBlazor
+
+<MudContainer MaxWidth="MaxWidth.ExtraSmall" Style="margin-top: 100px;">
+    <MudPaper Class="pa-6" Elevation="4">
+        <MudText Typo="Typo.h4" Align="Align.Center" Class="mb-4">ArchoCybo</MudText>
+        <MudText Typo="Typo.h6" Align="Align.Center" Class="mb-6">Sign In</MudText>
+
+        <MudTextField @bind-Value="username" Label="Username" Variant="Variant.Outlined" Class="mb-4" />
+        <MudTextField @bind-Value="password" Label="Password" Variant="Variant.Outlined" InputType="InputType.Password" Class="mb-4" />
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <MudAlert Severity="Severity.Error" Class="mb-4">@errorMessage</MudAlert>
+        }
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" OnClick="OnLogin" Disabled="@isLoading">
+            @if (isLoading)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+            }
+            else
+            {
+                <span>Login</span>
+            }
+        </MudButton>
+
+        <MudDivider Class="my-4" />
+
+        <MudText Typo="Typo.body2" Align="Align.Center" Class="mb-3">
+            Don't have an account? <MudLink Href="/register">Create one here</MudLink>
+        </MudText>
+
+        <MudText Typo="Typo.caption" Align="Align.Center" Color="Color.Secondary">
+            Demo: admin / ChangeMe123!
+        </MudText>
+    </MudPaper>
+</MudContainer>

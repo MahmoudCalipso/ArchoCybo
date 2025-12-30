@@ -45,15 +45,13 @@ public class AuthController : ControllerBase
                 {
                     user.LockoutEnd = DateTime.UtcNow.AddMinutes(15);
                 }
-                repo.Update(user);
-                await _uow.SaveChangesAsync();
+                await repo.UpdateAsync(user);
                 return Unauthorized(new { error = "Invalid credentials" });
             }
 
             user.FailedLoginAttempts = 0;
             user.LastLoginAt = DateTime.UtcNow;
-            repo.Update(user);
-            await _uow.SaveChangesAsync();
+            await repo.UpdateAsync(user);
 
             var jwtKey = _config["Jwt:Key"] ?? "secret";
             var jwtIssuer = _config["Jwt:Issuer"] ?? "archocybo";
@@ -116,8 +114,7 @@ public class AuthController : ControllerBase
         if (user == null) return BadRequest(new { error = "Invalid confirmation token" });
         user.EmailConfirmed = true;
         user.EmailConfirmationToken = null;
-        repo.Update(user);
-        await uow.SaveChangesAsync();
+        await repo.UpdateAsync(user);
         return Ok(new { confirmed = true });
     }
 }
