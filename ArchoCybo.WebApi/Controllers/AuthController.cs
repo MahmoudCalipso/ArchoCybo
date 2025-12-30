@@ -58,16 +58,16 @@ public class AuthController : ControllerBase
 
             var claims = new List<System.Security.Claims.Claim>
             {
-                new(System.Security.Claims.ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new(System.Security.Claims.ClaimTypes.Name, user.Username)
+                new("UserID", user.Id.ToString()),
+                new("UserName", user.Username)
             };
             foreach (var role in user.UserRoles.Select(ur => ur.Role.Name))
             {
-                claims.Add(new(System.Security.Claims.ClaimTypes.Role, role));
+                claims.Add(new("Role", role));
             }
             foreach (var permission in user.PermissionNames)
             {
-                claims.Add(new("permission", permission));
+                claims.Add(new("Permissions", permission));
             }
 
             var key = new System.Text.UTF8Encoding().GetBytes(jwtKey);

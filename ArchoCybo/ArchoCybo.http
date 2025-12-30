@@ -1,6 +1,0 @@
-@ArchoCybo_HostAddress = http://localhost:5170
-
-GET {{ArchoCybo_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###
