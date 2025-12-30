@@ -21,7 +21,7 @@
             <MudAlert Severity="Severity.Error" Class="mb-4">@errorMessage</MudAlert>
         }
 
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" OnClick="OnLogin" Disabled="isLoading">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" OnClick="OnLogin" Disabled="@isLoading">
             @if (isLoading)
             {
                 <MudProgressCircular Size="Size.Small" Indeterminate="true" />
@@ -50,6 +50,15 @@
     string errorMessage = string.Empty;
     bool isLoading = false;
 
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated == true)
+        {
+            Nav.NavigateTo("/");
+        }
+    }
+
     async Task OnLogin()
     {
         errorMessage = string.Empty;
@@ -66,9 +75,9 @@
 
                 if (!string.IsNullOrEmpty(token))
                 {
-                    AuthStateProvider.MarkUserAsAuthenticated(token, username);
+                    await AuthStateProvider.MarkUserAsAuthenticated(token, username);
                     Snackbar.Add("Login successful!", Severity.Success);
-                    Nav.NavigateTo("/", true);
+                    Nav.NavigateTo("/");
                 }
             }
             else

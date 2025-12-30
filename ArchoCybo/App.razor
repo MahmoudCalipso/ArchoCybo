@@ -6,39 +6,41 @@
 
 <MudDialogProvider />
 <MudSnackbarProvider />
-<Router AppAssembly="@typeof(Program).Assembly">
-  <Found Context="routeData">
-    <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(Shared.MainLayout)">
-      <NotAuthorized>
-        @if (context.User.Identity?.IsAuthenticated != true)
-        {
-          <RedirectToLogin />
-        }
-        else
-        {
+<CascadingAuthenticationState>
+    <Router AppAssembly="@typeof(Program).Assembly">
+      <Found Context="routeData">
+        <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(Shared.MainLayout)">
+          <NotAuthorized>
+            @if (context.User.Identity?.IsAuthenticated != true)
+            {
+              <RedirectToLogin />
+            }
+            else
+            {
+              <MudContainer MaxWidth="MaxWidth.Medium" Class="mt-8">
+                <MudPaper Class="pa-6" Elevation="4">
+                  <MudText Typo="Typo.h5" Color="Color.Error" Class="mb-3">Access Denied</MudText>
+                  <MudText Typo="Typo.body1">You do not have permission to access this page.</MudText>
+                  <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/" Class="mt-4">Go to Dashboard</MudButton>
+                </MudPaper>
+              </MudContainer>
+            }
+          </NotAuthorized>
+        </AuthorizeRouteView>
+      </Found>
+      <NotFound>
+        <LayoutView Layout="@typeof(Shared.MainLayout)">
           <MudContainer MaxWidth="MaxWidth.Medium" Class="mt-8">
             <MudPaper Class="pa-6" Elevation="4">
-              <MudText Typo="Typo.h5" Color="Color.Error" Class="mb-3">Access Denied</MudText>
-              <MudText Typo="Typo.body1">You do not have permission to access this page.</MudText>
+              <MudText Typo="Typo.h5" Color="Color.Warning" Class="mb-3">Page Not Found</MudText>
+              <MudText Typo="Typo.body1">The page you are looking for does not exist.</MudText>
               <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/" Class="mt-4">Go to Dashboard</MudButton>
             </MudPaper>
           </MudContainer>
-        }
-      </NotAuthorized>
-    </AuthorizeRouteView>
-  </Found>
-  <NotFound>
-    <LayoutView Layout="@typeof(Shared.MainLayout)">
-      <MudContainer MaxWidth="MaxWidth.Medium" Class="mt-8">
-        <MudPaper Class="pa-6" Elevation="4">
-          <MudText Typo="Typo.h5" Color="Color.Warning" Class="mb-3">Page Not Found</MudText>
-          <MudText Typo="Typo.body1">The page you are looking for does not exist.</MudText>
-          <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/" Class="mt-4">Go to Dashboard</MudButton>
-        </MudPaper>
-      </MudContainer>
-    </LayoutView>
-  </NotFound>
-</Router>
+        </LayoutView>
+      </NotFound>
+    </Router>
+</CascadingAuthenticationState>
 
 @code {
 }

@@ -153,6 +153,31 @@ public class UsersController : ControllerBase
         return Ok(perms);
     }
 
+    [HttpGet("roles/{id}/permissions")]
+    [Authorize(Policy = "AdminOnly")]
+    public async Task<IActionResult> GetRolePermissions(Guid id)
+    {
+        var result = await _userService.GetRolePermissionsAsync(id);
+        return Ok(result);
+    }
+
+    [HttpPut("roles/{id}/permissions")]
+    [Authorize(Policy = "AdminOnly")]
+    public async Task<IActionResult> UpdateRolePermissions(Guid id, [FromBody] List<Guid> permissionIds)
+    {
+        var actingUserId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+        await _userService.UpdateRolePermissionsAsync(actingUserId, id, permissionIds);
+        return NoContent();
+    }
+
+    [HttpGet("endpoints/all")]
+    [Authorize(Policy = "AdminOnly")]
+    public async Task<IActionResult> GetAllEndpoints()
+    {
+        var result = await _userService.GetAllEndpointsAsync();
+        return Ok(result);
+    }
+
     /// <summary>Deletes a user</summary>
     [HttpDelete("{id}")]
     [Authorize(Policy = "AdminOnly")]

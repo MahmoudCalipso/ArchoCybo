@@ -23,7 +23,7 @@
             <MudAlert Severity="Severity.Error" Class="mb-4">@errorMessage</MudAlert>
         }
 
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" OnClick="OnRegister" Disabled="isLoading">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" OnClick="OnRegister" Disabled="@isLoading">
             @if (isLoading)
             {
                 <MudProgressCircular Size="Size.Small" Indeterminate="true" />

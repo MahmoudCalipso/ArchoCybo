@@ -10,50 +10,53 @@
 
 <MudContainer MaxWidth="MaxWidth.False" Class="mt-4" Style="height: 85vh; display: flex; flex-direction: column;">
     <MudStack Direction="Row" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
-        <MudText Typo="Typo.h4">Schema Designer</MudText>
+        <MudText Typo="Typo.h4" Style="font-weight: 700; color: #d1d5db;">Schema Designer</MudText>
         <MudStack Direction="Row">
-             <MudButton Variant="Variant.Filled" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Code" OnClick="GoToQueryBuilder">Query Builder</MudButton>
-             <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="AddEntity">Add Entity</MudButton>
+             <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Code" OnClick="GoToQueryBuilder">Query Builder</MudButton>
+             <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="AddEntity" Class="rounded-lg">Add Entity</MudButton>
         </MudStack>
     </MudStack>
 
     <!-- Canvas Area -->
-    <div class="schema-canvas" style="flex-grow: 1; background-color: #1e1e1e; position: relative; overflow: auto; border-radius: 8px; background-image: radial-gradient(#333 1px, transparent 1px); background-size: 20px 20px;">
+    <div class="schema-canvas" style="flex-grow: 1; background-color: #0f111a; position: relative; overflow: auto; border-radius: 12px; border: 1px solid #2d2d3b; background-image: radial-gradient(#2d2d3b 1px, transparent 1px); background-size: 24px 24px;">
         
         <!-- SVG Layer for Relations -->
         <svg style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0;">
             <defs>
                 <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
-                    <polygon points="0 0, 10 3.5, 0 7" fill="#666" />
+                    <polygon points="0 0, 10 3.5, 0 7" fill="#6b7280" />
                 </marker>
             </defs>
             @foreach (var rel in relationsToDraw)
             {
-                <path d="@GetPath(rel)" stroke="#666" stroke-width="2" fill="none" marker-end="url(#arrowhead)" />
+                <path d="@GetPath(rel)" stroke="#6b7280" stroke-width="2" fill="none" marker-end="url(#arrowhead)" />
             }
         </svg>
 
         @foreach (var node in entityNodes)
         {
-            <MudPaper Class="schema-node pa-0" Elevation="4" Style="@($"position: absolute; left: {node.X}px; top: {node.Y}px; width: 250px; cursor: pointer; z-index: 1;")" @onclick="() => EditEntity(node.Entity)">
+            <MudPaper Class="schema-node" Elevation="6" Style="@($"position: absolute; left: {node.X}px; top: {node.Y}px; width: 260px; cursor: move; z-index: 1; border-radius: 8px; border: 1px solid #374151; background-color: #1f2937;")" @onclick="() => EditEntity(node.Entity!)">
                 <!-- Header -->
-                <div class="d-flex justify-space-between align-center px-3 py-2" style="background-color: var(--mud-palette-primary); color: white; border-top-left-radius: 4px; border-top-right-radius: 4px;">
-                    <MudText Typo="Typo.subtitle1"><b>@node.Entity.Name</b></MudText>
+                <div class="d-flex justify-space-between align-center px-4 py-3" style="background: linear-gradient(to right, #7e22ce, #a855f7); color: white; border-top-left-radius: 8px; border-top-right-radius: 8px;">
+                    <MudText Typo="Typo.h6" Style="font-size: 1rem; font-weight: 600;">@node.Entity!.Name</MudText>
                     <MudIconButton Icon="@Icons.Material.Filled.Settings" Size="Size.Small" Color="Color.Inherit" />
                 </div>
                 
                 <!-- Fields -->
-                <div class="px-3 py-2" style="background-color: #2d2d2d;">
-                    @foreach (var field in node.Entity.Fields.Take(5))
+                <div class="px-4 py-3">
+                    @if (node.Entity!.Fields != null)
                     {
-                        <div class="d-flex justify-space-between mb-1">
-                            <MudText Typo="Typo.caption" Style="color: #ccc;">@field.Name</MudText>
-                            <MudText Typo="Typo.caption" Style="color: #888;">@field.DataType</MudText>
-                        </div>
-                    }
-                    @if (node.Entity.Fields.Count > 5)
-                    {
-                        <MudText Typo="Typo.caption" Align="Align.Center" Class="d-block mt-1" Style="color: #666;">+ @(node.Entity.Fields.Count - 5) more</MudText>
+                        @foreach (var field in node.Entity.Fields.Take(5))
+                        {
+                            <div class="d-flex justify-space-between align-center mb-1" style="border-bottom: 1px solid #374151; padding-bottom: 4px;">
+                                <MudText Typo="Typo.body2" Style="color: #e5e7eb;">@field.Name</MudText>
+                                <MudText Typo="Typo.caption" Style="color: #9ca3af; font-family: monospace;">@field.DataType</MudText>
+                            </div>
+                        }
+                        @if (node.Entity.Fields.Count > 5)
+                        {
+                            <MudText Typo="Typo.caption" Align="Align.Center" Class="d-block mt-2" Style="color: #9ca3af;">+ @(node.Entity.Fields.Count - 5) more columns</MudText>
+                        }
                     }
                 </div>
             </MudPaper>
@@ -62,11 +65,11 @@
 </MudContainer>
 
 @code {
-    [Parameter] public string ProjectId { get; set; }
+    [Parameter] public required string ProjectId { get; set; }
     
     class EntityNode
     {
-        public EntityDto Entity { get; set; }
+        public EntityDto? Entity { get; set; }
         public double X { get; set; }
         public double Y { get; set; }
     }
@@ -113,14 +116,14 @@
             
             // Layout logic
             entityNodes.Clear();
-            int x = 50, y = 50, col = 0;
+            int x = 60, y = 60, col = 0;
             foreach (var e in dtos)
             {
                 entityNodes.Add(new EntityNode { Entity = e, X = x, Y = y });
                 
-                x += 300;
+                x += 320;
                 col++;
-                if (col > 3) { col = 0; x = 50; y += 300; }
+                if (col > 3) { col = 0; x = 60; y += 350; }
             }
             
             CalculateRelations();
@@ -136,18 +139,18 @@
         relationsToDraw.Clear();
         foreach (var node in entityNodes)
         {
-            if (node.Entity.Relations == null) continue;
+            if (node.Entity?.Relations == null) continue;
             
             foreach (var rel in node.Entity.Relations)
             {
-                var target = entityNodes.FirstOrDefault(n => n.Entity.Id == rel.TargetEntityId);
+                var target = entityNodes.FirstOrDefault(n => n.Entity?.Id == rel.TargetEntityId);
                 if (target != null)
                 {
-                    // Center of nodes (width 250)
+                    // Center of nodes (width 260)
                     relationsToDraw.Add(new RelationDraw 
                     { 
-                        X1 = node.X + 125, Y1 = node.Y + 40, // rough center
-                        X2 = target.X + 125, Y2 = target.Y + 40 
+                        X1 = node.X + 130, Y1 = node.Y + 40, // rough center
+                        X2 = target.X + 130, Y2 = target.Y + 40 
                     });
                 }
             }
@@ -156,12 +159,12 @@
     
     string GetPath(RelationDraw r)
     {
-        // Simple straight line for now, maybe bezier later
-        // return $"M {r.X1} {r.Y1} L {r.X2} {r.Y2}";
-        
-        // Curvi-linear
+        // Curvi-linear connector
         var mx = (r.X1 + r.X2) / 2;
-        return $"M {r.X1} {r.Y1} C {mx} {r.Y1}, {mx} {r.Y2}, {r.X2} {r.Y2}";
+        var my = (r.Y1 + r.Y2) / 2;
+        
+        // Horizontal logic
+        return $"M {r.X1} {r.Y1} C {r.X1 + 50} {r.Y1}, {r.X2 - 50} {r.Y2}, {r.X2} {r.Y2}";
     }
 
     async Task AddEntity()

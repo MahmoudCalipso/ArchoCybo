@@ -22,4 +22,9 @@ public interface IUserService
     Task DeleteUserAsync(Guid userId);
     Task<List<RoleSummaryDto>> GetAllRolesAsync();
     Task<List<PermissionSummaryDto>> GetAllPermissionsAsync();
+    
+    // Role Management
+    Task<List<PermissionSummaryDto>> GetRolePermissionsAsync(Guid roleId);
+    Task UpdateRolePermissionsAsync(Guid actingUserId, Guid roleId, List<Guid> permissionIds);
+    Task<List<EndpointAccessDto>> GetAllEndpointsAsync();
 }

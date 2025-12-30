@@ -1,4 +1,4 @@
-@page "/query-builder-advanced"
+@page "/query-builder-advanced/{ProjectId}"
 @attribute [Authorize]
 @using System.Net.Http.Json
 @using Microsoft.JSInterop
@@ -16,169 +16,212 @@
 @inject TokenProvider TokenProvider
 @inject ISnackbar Snackbar
 
-<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
-    <MudText Typo="Typo.h4" Class="mb-4">Advanced Query Builder</MudText>
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 px-6">
+    <MudStack Direction="Row" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+        <div>
+            <MudText Typo="Typo.h4" Style="color: #7e22ce; font-weight: 700;">Query Builder</MudText>
+            <MudText Typo="Typo.subtitle1" Class="mud-text-secondary">Visually build queries for Project @ProjectId.</MudText>
+        </div>
+        <MudButton Variant="Variant.Filled" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.AutoFixHigh" OnClick="OpenCodeGenDialog" Disabled="@string.IsNullOrEmpty(selectedEntity)">Generate Artifacts</MudButton>
+    </MudStack>
+    
 
-    <MudGrid>
-        <MudItem xs="12" md="4">
-            <MudPaper Class="pa-4" Elevation="2">
-                <MudText Typo="Typo.h6" Class="mb-3">Query Configuration</MudText>
+    <MudGrid Spacing="4">
+        <!-- Sidebar Configuration -->
+        <MudItem xs="12" md="3">
+            <MudPaper  Elevation="0" Class="pa-4" Style="background-color: #1f2937; border: 1px solid #374151; border-radius: 12px;">
+                <MudText Typo="Typo.h6" Class="mb-4" Color="Color.Primary">Configuration</MudText>
 
-                <MudSelect @bind-Value="selectedEntity" Label="Entity" Variant="Variant.Outlined" Class="mb-3">
+                <MudSelect @bind-Value="SelectedEntityProperty" Label="Select Entity" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter" Class="mb-4" AdornmentColor="Color.Primary">
                     @if (entities != null)
                     {
                         foreach (var e in entities)
                         {
-                            <MudSelectItem Value="@e.GetProperty("Name").GetString()">@e.GetProperty("Name").GetString()</MudSelectItem>
+                            var name = e.GetProperty("Name").GetString();
+                            <MudSelectItem Value="@name">@name</MudSelectItem>
                         }
                     }
                 </MudSelect>
 
-                <MudDivider Class="my-3" />
-
-                <MudText Typo="Typo.subtitle2" Class="mb-2">Select Columns</MudText>
-                @if (columns != null)
+                @if (!string.IsNullOrEmpty(selectedEntity))
                 {
-                    foreach (var col in columns)
+                    <MudText Typo="Typo.subtitle2" Class="mb-2 mt-4" Color="Color.Inherit">Columns</MudText>
+                    <div style="max-height: 200px; overflow-y: auto; background: #111827; padding: 10px; border-radius: 8px; border: 1px solid #374151;">
+                        @if (columns != null)
+                        {
+                            foreach (var col in columns)
+                            {
+                                var colName = col.GetProperty("Name").GetString() ?? "";
+                                <MudCheckBox T="bool" Checked="@(selectedColumns.ContainsKey(colName) && selectedColumns[colName])" CheckedChanged="@((bool v) => UpdateColumnSelection(colName, v))" Label="@colName" Dense="true" Color="Color.Primary" />
+                            }
+                        }
+                    </div>
+
+                    <MudText Typo="Typo.subtitle2" Class="mb-2 mt-4" Color="Color.Inherit">Filters</MudText>
+                    @foreach (var filter in filters)
                     {
-                        var colName = col.GetProperty("Name").GetString();
-                        <MudCheckBox @bind-Checked="@selectedColumns[colName]" Label="@colName" Dense="true" />
-                    }
-                }
-
-                <MudDivider Class="my-3" />
-
-                <MudText Typo="Typo.subtitle2" Class="mb-2">Filters</MudText>
-                @foreach (var filter in filters)
-                {
-                    <MudPaper Class="pa-2 mb-2" Outlined="true">
-                        <MudStack Row="true" Spacing="1">
-                            <MudSelect @bind-Value="filter.Column" Label="Column" Variant="Variant.Outlined" Dense="true">
-                                @if (columns != null)
-                                {
-                                    foreach (var col in columns)
+                        <div class="mb-2 pa-2 rounded" style="background: #111827; border: 1px solid #374151;">
+                            <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                                <MudIcon Icon="@Icons.Material.Filled.FilterAlt" Size="Size.Small" Color="Color.Tertiary" />
+                                <MudSelect @bind-Value="filter.Column" Variant="Variant.Text" DisableUnderLine="true" Dense="true" Style="font-size: 0.875rem;">
+                                    @if (columns != null)
                                     {
-                                        <MudSelectItem Value="@col.GetProperty("Name").GetString()">@col.GetProperty("Name").GetString()</MudSelectItem>
+                                        foreach (var col in columns)
+                                        {
+                                            var n = col.GetProperty("Name").GetString();
+                                            <MudSelectItem Value="@n">@n</MudSelectItem>
+                                        }
                                     }
-                                }
-                            </MudSelect>
-                            <MudSelect @bind-Value="filter.Operator" Label="Operator" Variant="Variant.Outlined" Dense="true">
-                                <MudSelectItem Value="@("=")">=</MudSelectItem>
-                                <MudSelectItem Value="@("!=")">!=</MudSelectItem>
-                                <MudSelectItem Value="@(">")">></MudSelectItem>
-                                <MudSelectItem Value="@("<")"> @("<") </MudSelectItem>
-                                <MudSelectItem Value="@("LIKE")">LIKE</MudSelectItem>
-                                <MudSelectItem Value="@("IN")">IN</MudSelectItem>
-                            </MudSelect>
-                            <MudTextField @bind-Value="filter.Value" Label="Value" Variant="Variant.Outlined" Dense="true" />
-                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="() => RemoveFilter(filter)" />
-                        </MudStack>
-                    </MudPaper>
+                                </MudSelect>
+                                <MudSelect @bind-Value="filter.Operator" Variant="Variant.Text" DisableUnderLine="true" Dense="true" Style="width: 50px; font-size: 0.875rem;">
+                                    <MudSelectItem Value="@("=")">=</MudSelectItem>
+                                    <MudSelectItem Value="@("!=")">!=</MudSelectItem>
+                                    <MudSelectItem Value="@(">")">></MudSelectItem>
+                                    <MudSelectItem Value="@("<")">&lt;</MudSelectItem>
+                                    <MudSelectItem Value="@("LIKE")">~</MudSelectItem>
+                                </MudSelect>
+                            </MudStack>
+                            <MudTextField @bind-Value="filter.Value" Placeholder="Value" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mt-1" />
+                            <div class="d-flex justify-end mt-1">
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="() => RemoveFilter(filter)" />
+                            </div>
+                        </div>
+                    }
+                    <MudButton StartIcon="@Icons.Material.Filled.Add" Variant="Variant.Text" Color="Color.Primary" OnClick="AddFilter" Size="Size.Small" Class="mt-1">Add Filter</MudButton>
+
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="BuildQuery" FullWidth="true" Class="mt-6 rounded-lg">Build Query</MudButton>
                 }
-                <MudButton StartIcon="@Icons.Material.Filled.Add" Variant="Variant.Outlined" Color="Color.Primary" OnClick="AddFilter" Size="Size.Small">Add Filter</MudButton>
-
-                <MudDivider Class="my-3" />
-
-                <MudText Typo="Typo.subtitle2" Class="mb-2">Actions</MudText>
-                <MudStack Spacing="2">
-                    <MudButton Variant="Variant.Filled" Color="Color.Info" OnClick="BuildQuery" FullWidth="true">Build Query</MudButton>
-                    <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="RunQuery" FullWidth="true" Disabled="string.IsNullOrEmpty(queryText)">Test Query</MudButton>
-                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="CopyQuery" FullWidth="true" Disabled="string.IsNullOrEmpty(queryText)">Copy SQL</MudButton>
-                    <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="OpenCodeGenDialog" FullWidth="true" Disabled="string.IsNullOrEmpty(queryText)">Generate Code</MudButton>
-                </MudStack>
+                else
+                {
+                    <MudAlert Severity="Severity.Info" Class="mt-4">Select an entity to begin.</MudAlert>
+                }
             </MudPaper>
         </MudItem>
 
-        <MudItem xs="12" md="8">
-            <MudPaper Class="pa-4 mb-3" Elevation="2">
-                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
-                    <MudText Typo="Typo.h6">Generated SQL</MudText>
-                    <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Color="Color.Primary" OnClick="CopyQuery" Disabled="string.IsNullOrEmpty(queryText)" />
-                </MudStack>
-                <MudPaper Class="pa-3" Style="min-height:150px; font-family:monospace; white-space:pre-wrap; background:#1e1e1e; color:#d4d4d4; overflow-x:auto;">
-                    @if (!string.IsNullOrEmpty(queryText))
-                    {
-                        <code>@queryText</code>
-                    }
-                    else
-                    {
-                        <MudText Typo="Typo.body2" Color="Color.Secondary">Select an entity and build your query...</MudText>
-                    }
-                </MudPaper>
-            </MudPaper>
+        <!-- Main Content (Code & Results) -->
+        <MudItem xs="12" md="9">
+            <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-0" Color="Color.Transparent" ActiveTabClass="tab-active">
+                <MudTabPanel Text="SQL Query" Icon="@Icons.Material.Filled.Storage">
+                    <MudPaper Elevation="0" Class="pa-4" Style="background-color: #1f2937; border: 1px solid #374151; border-radius: 12px; min-height: 400px;">
+                        <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mb-2">
+                             <MudText Color="Color.Secondary" Typo="Typo.overline">Generated SQL</MudText>
+                             <MudStack Row="true">
+                                <MudButton Size="Size.Small" StartIcon="@Icons.Material.Filled.PlayArrow" Variant="Variant.Filled" Color="Color.Success" OnClick="RunQuery" Disabled="@string.IsNullOrEmpty(queryText)">Execute</MudButton>
+                                <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Color="Color.Inherit" OnClick="CopyQuery" Disabled="@string.IsNullOrEmpty(queryText)" />
+                             </MudStack>
+                        </MudStack>
+                        <div class="code-block">
+                            <pre>@queryText</pre>
+                        </div>
+                    </MudPaper>
+                </MudTabPanel>
+                
+                <MudTabPanel Text="Linq / EF Core" Icon="@Icons.Material.Filled.Code">
+                    <MudPaper Elevation="0" Class="pa-4" Style="background-color: #1f2937; border: 1px solid #374151; border-radius: 12px; min-height: 400px;">
+                         <MudText Color="Color.Secondary" Typo="Typo.overline" Class="mb-2">C# Expression</MudText>
+                         <div class="code-block">
+                            <pre>@linqText</pre>
+                        </div>
+                    </MudPaper>
+                </MudTabPanel>
 
-            @if (results != null && results.Count > 0)
-            {
-                <MudPaper Class="pa-4" Elevation="2">
-                    <MudText Typo="Typo.h6" Class="mb-3">Query Results (@results.Count rows)</MudText>
-                    <div style="overflow-x: auto;">
-                        <MudTable Items="results" Dense="true" Hover="true" Striped="true" FixedHeader="true" Height="400px">
-                            <HeaderContent>
-                                @if (results.Count > 0)
-                                {
-                                    foreach (var key in results[0].Keys)
+                <MudTabPanel Text="Results" Icon="@Icons.Material.Filled.TableChart" BadgeData="@(results?.Count ?? 0)" BadgeColor="Color.Primary">
+                     <MudPaper Elevation="0" Class="pa-4" Style="background-color: #1f2937; border: 1px solid #374151; border-radius: 12px; min-height: 400px;">
+                        @if (results != null && results.Count > 0)
+                        {
+                            <MudTable Items="results" Dense="true" Hover="true" Striped="true" FixedHeader="true" Height="350px" Class="mud-theme-dark">
+                                <HeaderContent>
+                                    @foreach (var key in results[0].Keys)
                                     {
                                         <MudTh>@key</MudTh>
                                     }
-                                }
-                            </HeaderContent>
-                            <RowTemplate Context="row">
-                                @foreach (var val in row.Values)
-                                {
-                                    <MudTd>@val</MudTd>
-                                }
-                            </RowTemplate>
-                        </MudTable>
-                    </div>
-                </MudPaper>
-            }
+                                </HeaderContent>
+                                <RowTemplate Context="row">
+                                    @foreach (var val in row.Values)
+                                    {
+                                        <MudTd>@val</MudTd>
+                                    }
+                                </RowTemplate>
+                            </MudTable>
+                        }
+                        else
+                        {
+                            <MudText Align="Align.Center" Class="mt-10" Color="Color.Default">No results to display. Execute a query first.</MudText>
+                        }
+                     </MudPaper>
+                </MudTabPanel>
+            </MudTabs>
         </MudItem>
     </MudGrid>
 </MudContainer>
 
 <MudDialog @bind-IsVisible="showCodeGenDialog" Options="dialogOptions">
     <TitleContent>
-        <MudText Typo="Typo.h6">Generate Full Code</MudText>
+        <MudText Typo="Typo.h6">Generate Artifacts</MudText>
     </TitleContent>
     <DialogContent>
         <MudTextField @bind-Value="entityName" Label="Entity Name" Variant="Variant.Outlined" Class="mb-3" />
-
-        <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-4">
+        <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-4" Color="Color.Dark">
             <MudTabPanel Text="DTO">
-                <MudPaper Class="pa-2" Style="max-height:400px; overflow-y:auto; background:#1e1e1e; color:#d4d4d4; font-family:monospace; white-space:pre;">
-                    <code>@generatedDto</code>
-                </MudPaper>
+                <div class="code-block-small"><pre>@generatedDto</pre></div>
             </MudTabPanel>
             <MudTabPanel Text="Repository">
-                <MudPaper Class="pa-2" Style="max-height:400px; overflow-y:auto; background:#1e1e1e; color:#d4d4d4; font-family:monospace; white-space:pre;">
-                    <code>@generatedRepository</code>
-                </MudPaper>
+                <div class="code-block-small"><pre>@generatedRepository</pre></div>
             </MudTabPanel>
             <MudTabPanel Text="Service">
-                <MudPaper Class="pa-2" Style="max-height:400px; overflow-y:auto; background:#1e1e1e; color:#d4d4d4; font-family:monospace; white-space:pre;">
-                    <code>@generatedService</code>
-                </MudPaper>
+                 <div class="code-block-small"><pre>@generatedService</pre></div>
             </MudTabPanel>
             <MudTabPanel Text="Controller">
-                <MudPaper Class="pa-2" Style="max-height:400px; overflow-y:auto; background:#1e1e1e; color:#d4d4d4; font-family:monospace; white-space:pre;">
-                    <code>@generatedController</code>
-                </MudPaper>
+                 <div class="code-block-small"><pre>@generatedController</pre></div>
             </MudTabPanel>
         </MudTabs>
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="CloseCodeGenDialog">Close</MudButton>
-        <MudButton Color="Color.Primary" OnClick="CopyAllCode">Copy All</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="CopyAllCode">Copy All Code</MudButton>
     </DialogActions>
 </MudDialog>
 
+<style>
+    .code-block {
+        background-color: #111827;
+        color: #a5b4fc;
+        padding: 16px;
+        border-radius: 8px;
+        font-family: 'Consolas', 'Monaco', monospace;
+        overflow: auto;
+        height: 100%;
+        min-height: 300px;
+    }
+    .code-block-small {
+        background-color: #111827;
+        color: #a5b4fc;
+        padding: 10px;
+        border-radius: 6px;
+        font-family: 'Consolas', 'Monaco', monospace;
+        overflow: auto;
+        max-height: 400px;
+    }
+    .tab-active {
+        color: #a855f7 !important;
+        font-weight: bold;
+    }
+    .mud-theme-dark .mud-table-container {
+        color: #d1d5db;
+    }
+</style>
+
 @code {
+    [Parameter] public string? ProjectId { get; set; }
+
     List<JsonElement>? entities;
     List<JsonElement>? columns;
     string? selectedEntity;
     Dictionary<string, bool> selectedColumns = new();
     List<FilterItem> filters = new();
+    
     string queryText = string.Empty;
+    string linqText = string.Empty;
     List<Dictionary<string, object>>? results;
 
     bool showCodeGenDialog = false;
@@ -206,7 +249,11 @@
     {
         try
         {
-            entities = await Http.GetFromJsonAsync<List<JsonElement>>("api/Metadata/entities");
+            // Use EntityDto logic but store as JsonElement for compatibility with existing UI loop or adapt
+            // Existing UI expects JsonElement with "Name" property.
+            // EntityDto has Name.
+            // Let's just deserialize as JsonElement list for simplicity to match UI
+            entities = await Http.GetFromJsonAsync<List<JsonElement>>($"api/projects/{ProjectId}/entities");
         }
         catch (Exception ex)
         {
@@ -214,19 +261,35 @@
         }
     }
 
-    async Task OnEntityChanged()
+    async Task OnEntityChanged(string newValue)
     {
-        if (string.IsNullOrEmpty(selectedEntity)) return;
+        selectedEntity = newValue;
+        if (string.IsNullOrEmpty(selectedEntity) || entities == null) return;
 
         try
         {
-            columns = await Http.GetFromJsonAsync<List<JsonElement>>($"api/Metadata/entity/{selectedEntity}/columns");
+            // Find selected entity in list
+            var ent = entities.FirstOrDefault(e => e.GetProperty("Name").GetString() == selectedEntity);
+            if (ent.ValueKind != JsonValueKind.Undefined)
+            {
+                // EntityDto has 'Fields' property
+                if (ent.TryGetProperty("Fields", out var fieldsProp))
+                {
+                    columns = fieldsProp.EnumerateArray().ToList();
+                }
+                else
+                {
+                    columns = new List<JsonElement>();
+                }
+            }
+            
             selectedColumns.Clear();
             if (columns != null)
             {
                 foreach (var col in columns)
                 {
-                    selectedColumns[col.GetProperty("Name").GetString()!] = true;
+                    var name = col.GetProperty("Name").GetString();
+                    if (!string.IsNullOrEmpty(name)) selectedColumns[name] = true;
                 }
             }
         }
@@ -234,6 +297,17 @@
         {
             Snackbar.Add("Failed to load columns: " + ex.Message, Severity.Error);
         }
+    }
+    
+    public void UpdateColumnSelection(string colName, bool isChecked)
+    {
+        selectedColumns[colName] = isChecked;
+    }
+
+    public string SelectedEntityProperty
+    {
+        get => selectedEntity ?? "";
+        set => _ = OnEntityChanged(value);
     }
 
     void AddFilter()
@@ -246,7 +320,7 @@
         filters.Remove(filter);
     }
 
-    async Task BuildQuery()
+    void BuildQuery()
     {
         if (string.IsNullOrEmpty(selectedEntity))
         {
@@ -254,26 +328,42 @@
             return;
         }
 
-        await OnEntityChanged();
-
         var cols = selectedColumns.Where(x => x.Value).Select(x => x.Key).ToList();
         if (cols.Count == 0) cols = new List<string> { "*" };
 
+        // SQL Construction
         var query = $"SELECT {string.Join(", ", cols)} FROM {selectedEntity}";
+        
+        // Linq Construction
+        var linq = $"_context.{selectedEntity}";
 
         if (filters.Any(f => !string.IsNullOrEmpty(f.Column)))
         {
-            var whereConditions = filters
-                .Where(f => !string.IsNullOrEmpty(f.Column))
-                .Select(f => f.Operator == "LIKE"
+            var validFilters = filters.Where(f => !string.IsNullOrEmpty(f.Column)).ToList();
+            
+            var whereConditions = validFilters.Select(f => f.Operator == "LIKE"
                     ? $"{f.Column} LIKE '%{f.Value}%'"
                     : $"{f.Column} {f.Operator} '{f.Value}'");
 
             query += "\nWHERE " + string.Join(" AND ", whereConditions);
+            
+            foreach(var f in validFilters)
+            {
+                if (f.Operator == "=") linq += $".Where(x => x.{f.Column} == \"{f.Value}\")";
+                else if (f.Operator == "!=") linq += $".Where(x => x.{f.Column} != \"{f.Value}\")";
+                else if (f.Operator == "LIKE") linq += $".Where(x => x.{f.Column}.Contains(\"{f.Value}\"))";
+            }
+        }
+        
+        if (cols.Count > 0 && cols[0] != "*")
+        {
+             linq += $".Select(x => new {{ {string.Join(", ", cols.Select(c=>$"x.{c}"))} }})";
         }
 
         queryText = query;
-        Snackbar.Add("Query built successfully", Severity.Success);
+        linqText = linq + ".ToListAsync();";
+        
+        Snackbar.Add("Query constructed.", Severity.Info);
     }
 
     async Task RunQuery()
@@ -293,18 +383,18 @@
             if (resp.IsSuccessStatusCode)
             {
                 results = await resp.Content.ReadFromJsonAsync<List<Dictionary<string, object>>>();
-                Snackbar.Add($"Query executed successfully. {results?.Count ?? 0} rows returned.", Severity.Success);
+                Snackbar.Add($"Success. Returned {results?.Count ?? 0} rows.", Severity.Success);
             }
             else
             {
                 var error = await resp.Content.ReadAsStringAsync();
-                Snackbar.Add("Query failed: " + error, Severity.Error);
+                Snackbar.Add("Query Execution Failed: " + error, Severity.Error);
                 results = null;
             }
         }
         catch (Exception ex)
         {
-            Snackbar.Add("Error executing query: " + ex.Message, Severity.Error);
+            Snackbar.Add("Error: " + ex.Message, Severity.Error);
             results = null;
         }
     }
@@ -313,7 +403,7 @@
     {
         if (string.IsNullOrEmpty(queryText)) return;
         await JS.InvokeVoidAsync("navigator.clipboard.writeText", queryText);
-        Snackbar.Add("Query copied to clipboard", Severity.Success);
+        Snackbar.Add("SQL copied.", Severity.Success);
     }
 
     void OpenCodeGenDialog()
@@ -348,7 +438,7 @@
     {
         var allCode = $"// DTO\n{generatedDto}\n\n// Repository\n{generatedRepository}\n\n// Service\n{generatedService}\n\n// Controller\n{generatedController}";
         await JS.InvokeVoidAsync("navigator.clipboard.writeText", allCode);
-        Snackbar.Add("All code copied to clipboard", Severity.Success);
+        Snackbar.Add("Artifacts copied to clipboard.", Severity.Success);
     }
 
     class FilterItem

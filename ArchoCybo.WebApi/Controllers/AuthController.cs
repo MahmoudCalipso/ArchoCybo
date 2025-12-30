@@ -67,13 +67,17 @@ public class AuthController : ControllerBase
             {
                 claims.Add(new(System.Security.Claims.ClaimTypes.Role, role));
             }
+            foreach (var permission in user.PermissionNames)
+            {
+                claims.Add(new("permission", permission));
+            }
 
             var key = new System.Text.UTF8Encoding().GetBytes(jwtKey);
             var token = new System.IdentityModel.Tokens.Jwt.JwtSecurityToken(
                 issuer: jwtIssuer,
                 audience: jwtIssuer,
                 claims: claims,
-                expires: DateTime.UtcNow.AddHours(2),
+                expires: DateTime.UtcNow.AddDays(10),
                 signingCredentials: new Microsoft.IdentityModel.Tokens.SigningCredentials(
                     new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(key),
                     Microsoft.IdentityModel.Tokens.SecurityAlgorithms.HmacSha256Signature

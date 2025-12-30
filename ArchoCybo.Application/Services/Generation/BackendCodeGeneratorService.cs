@@ -45,6 +45,7 @@ public class BackendCodeGeneratorService
             "Infrastructure/Data",
             "Infrastructure/Repositories",
             "WebApi/Controllers",
+            "WebApi/Middleware",
             "SharedKernel"
         };
 
@@ -62,6 +63,53 @@ public class BackendCodeGeneratorService
         await GenerateServices(basePath, projectName, entities);
         await GenerateControllers(basePath, projectName, entities, queries);
         await GenerateDbContext(basePath, projectName, entities);
+        await GenerateGlobalExceptionMiddleware(basePath, projectName);
+    }
+
+    private async Task GenerateGlobalExceptionMiddleware(string basePath, string projectName)
+    {
+        var content = $@"using System.Net;
+using System.Text.Json;
+
+namespace {projectName}.WebApi.Middleware;
+
+public class GlobalExceptionMiddleware
+{{
+    private readonly RequestDelegate _next;
+
+    public GlobalExceptionMiddleware(RequestDelegate next)
+    {{
+        _next = next;
+    }}
+
+    public async Task InvokeAsync(HttpContext context)
+    {{
+        try
+        {{
+            await _next(context);
+        }}
+        catch (Exception ex)
+        {{
+            await HandleExceptionAsync(context, ex);
+        }}
+    }}
+
+    private static Task HandleExceptionAsync(HttpContext context, Exception exception)
+    {{
+        context.Response.ContentType = ""application/json"";
+        context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+
+        var response = new
+        {{
+            StatusCode = context.Response.StatusCode,
+            Message = ""Internal Server Error from generated code"",
+            Detailed = exception.Message
+        }};
+
+        return context.Response.WriteAsync(JsonSerializer.Serialize(response));
+    }}
+}}";
+        await File.WriteAllTextAsync(Path.Combine(basePath, "WebApi", "Middleware", "GlobalExceptionMiddleware.cs"), content);
     }
 
     private async Task GenerateCsprojFile(string basePath, string projectName)
@@ -69,18 +117,18 @@ public class BackendCodeGeneratorService
         var content = $@"<Project Sdk=""Microsoft.NET.Sdk.Web"">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include=""Microsoft.EntityFrameworkCore"" Version=""8.0.0"" />
-    <PackageReference Include=""Microsoft.EntityFrameworkCore.SqlServer"" Version=""8.0.0"" />
-    <PackageReference Include=""Microsoft.EntityFrameworkCore.Tools"" Version=""8.0.0"" />
+    <PackageReference Include=""Microsoft.EntityFrameworkCore"" Version=""10.0.0"" />
+    <PackageReference Include=""Microsoft.EntityFrameworkCore.SqlServer"" Version=""10.0.0"" />
+    <PackageReference Include=""Microsoft.EntityFrameworkCore.Tools"" Version=""10.0.0"" />
     <PackageReference Include=""MediatR"" Version=""12.0.0"" />
     <PackageReference Include=""MediatR.Extensions.Microsoft.DependencyInjection"" Version=""12.0.0"" />
-    <PackageReference Include=""Microsoft.AspNetCore.Authentication.JwtBearer"" Version=""8.0.0"" />
+    <PackageReference Include=""Microsoft.AspNetCore.Authentication.JwtBearer"" Version=""10.0.0"" />
   </ItemGroup>
 
 </Project>";
@@ -97,6 +145,7 @@ using System.Text;
 using {projectName}.Infrastructure.Data;
 using {projectName}.Application.Interfaces;
 using {projectName}.Infrastructure.Repositories;
+using {projectName}.WebApi.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -149,6 +198,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
     app.UseDeveloperExceptionPage();
 }}
+
+app.UseMiddleware<GlobalExceptionMiddleware>();
 
 app.UseHttpsRedirection();
 app.UseCors(""AllowAll"");

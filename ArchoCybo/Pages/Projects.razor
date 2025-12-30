@@ -20,82 +20,81 @@
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 
-<MudContainer MaxWidth="MaxWidth.Large">
-    <MudStack Direction="Row" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
-    <MudText Typo="Typo.h4">Projects</MudText>
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenCreate">New Project</MudButton>
-  </MudStack>
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 px-6">
+    <MudStack Direction="Row" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+        <div>
+            <MudText Typo="Typo.h4" Style="color: #d1d5db; font-weight: 700;">Projects</MudText>
+            <MudText Typo="Typo.subtitle1" Class="mud-text-secondary">Manage your backend projects.</MudText>
+        </div>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenCreate">New Project</MudButton>
+    </MudStack>
 
-  <MudPaper Class="pa-4 mt-4">
-    <MudTable Items="projects" Dense="true" Hover="true">
-      <ToolBarContent>
-                <MudTextField Placeholder="Search..."
+    <MudPaper Class="pa-4" Style="background-color: #1f2937; border: 1px solid #374151; border-radius: 12px;" Elevation="0">
+        <MudTable Items="projects" Dense="true" Hover="true" Class="mud-theme-dark" Elevation="0" Style="background-color: transparent;">
+            <ToolBarContent>
+                <MudTextField Placeholder="Search Projects..."
                               Adornment="Adornment.Start"
-                              AdornmentIcon="Icons.Material.Filled.Search"
+                              AdornmentIcon="@Icons.Material.Filled.Search"
                               Value="@search"
                               ValueChanged="@((string v) => OnSearchChanged(v))"
                               ValueExpression="() => search"
-                              Immediate="true" />
-
-
-      </ToolBarContent>
-      <HeaderContent>
-        <MudTh>Name</MudTh>
-        <MudTh>Database</MudTh>
-        <MudTh>Status</MudTh>
-        <MudTh>Created</MudTh>
-        <MudTh></MudTh>
-      </HeaderContent>
-      <RowTemplate Context="project">
-        <MudTd>@project.Name</MudTd>
-        <MudTd>@project.DatabaseType</MudTd>
-        <MudTd>@project.Status</MudTd>
-        <MudTd>@project.CreatedAt.ToLocalTime().ToString("g")</MudTd>
-        <MudTd>
-          <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="() => ShowDetails(project)">Details</MudButton>
-          <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Info" Class="ml-2" OnClick="() => GenerateProject(project.Id)">Generate</MudButton>
-        </MudTd>
-      </RowTemplate>
-    </MudTable>
-
-        <MudStack Direction="Row" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mt-2">
-      <MudText Typo="Typo.caption">Showing @(((page-1)*pageSize)+1)-@(((page-1)*pageSize)+projects.Count) of @totalCount</MudText>
-      <MudStack Direction="Row" Spacing="1">
-        <MudButton Disabled="@(page==1)" OnClick="PreviousPage">Previous</MudButton>
-        <MudButton Disabled="@(((page)*pageSize>=totalCount))" OnClick="NextPage">Next</MudButton>
-      </MudStack>
-    </MudStack>
-  </MudPaper>
-
-  @if (selected != null)
-  {
-    <MudPaper Class="pa-4 mt-3">
-      <MudText Typo="Typo.h6">Project Details</MudText>
-      <MudDivider Class="my-2" />
-      <MudGrid>
-        <MudItem xs="12" md="6">
-          <MudText><b>Name:</b> @selected.Name</MudText>
-          <MudText><b>Database:</b> @selected.DatabaseType</MudText>
-          <MudText><b>Status:</b> @selected.Status</MudText>
-        </MudItem>
-        <MudItem xs="12" md="6">
-          <MudText><b>Created:</b> @selected.CreatedAt.ToLocalTime().ToString("g")</MudText>
-          <MudText><b>Generated At:</b> @(selected.GeneratedAt.HasValue ? selected.GeneratedAt.Value.ToLocalTime().ToString("g") : "-")</MudText>
-        </MudItem>
-        <MudItem xs="12" Class="mt-2">
-          <MudButton Variant="Variant.Outlined" OnClick="OpenEdit">Edit</MudButton>
-          <MudButton Variant="Variant.Filled" Color="Color.Error" Class="ml-2" OnClick="ConfirmDelete">Delete</MudButton>
-          @if (!string.IsNullOrEmpty(artifactUrl))
-          {
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="@artifactUrl" Class="ml-2">Download Artifact</MudButton>
-          }
-        </MudItem>
-      </MudGrid>
+                              Immediate="true"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"
+                              Class="mt-0" />
+                <MudSpacer />
+            </ToolBarContent>
+            <HeaderContent>
+                <MudTh>Name</MudTh>
+                <MudTh>Database</MudTh>
+                <MudTh>Status</MudTh>
+                <MudTh>Created</MudTh>
+                <MudTh></MudTh>
+            </HeaderContent>
+            <RowTemplate Context="project">
+                <MudTd><b>@project.Name</b></MudTd>
+                <MudTd><MudChip Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">@project.DatabaseType</MudChip></MudTd>
+                <MudTd>@project.Status</MudTd>
+                <MudTd>@project.CreatedAt.ToLocalTime().ToString("g")</MudTd>
+                <MudTd>
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Info" OnClick="() => ShowDetails(project)">Details</MudButton>
+                    <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2" OnClick="() => GenerateProject(project.Id)">Generate</MudButton>
+                </MudTd>
+            </RowTemplate>
+            <PagerContent>
+                <MudTablePager />
+            </PagerContent>
+        </MudTable>
     </MudPaper>
-  }
+
+    @if (selected != null)
+    {
+        <MudPaper Class="pa-4 mt-3" Style="background-color: #1f2937; border: 1px solid #374151; border-radius: 12px;">
+            <MudText Typo="Typo.h6" Color="Color.Primary">Project Details: @selected.Name</MudText>
+            <MudDivider Class="my-2" />
+            <MudGrid>
+                <MudItem xs="12" md="6">
+                    <MudText Style="color: #d1d5db;"><b>Database:</b> @selected.DatabaseType</MudText>
+                    <MudText Style="color: #d1d5db;"><b>Status:</b> @selected.Status</MudText>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudText Style="color: #d1d5db;"><b>Created:</b> @selected.CreatedAt.ToLocalTime().ToString("g")</MudText>
+                    <MudText Style="color: #d1d5db;"><b>Generated At:</b> @(selected.GeneratedAt.HasValue ? selected.GeneratedAt.Value.ToLocalTime().ToString("g") : "-")</MudText>
+                </MudItem>
+                <MudItem xs="12" Class="mt-2">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Inherit" OnClick="OpenEdit">Edit</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Error" Class="ml-2" OnClick="ConfirmDelete">Delete</MudButton>
+                    @if (!string.IsNullOrEmpty(artifactUrl))
+                    {
+                        <MudButton Variant="Variant.Filled" Color="Color.Success" Href="@artifactUrl" Class="ml-2">Download Artifact</MudButton>
+                    }
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+    }
 </MudContainer>
 
-    @code {
+@code {
     string search = string.Empty;
     int page = 1;
     int pageSize = 10;
@@ -116,6 +115,7 @@
         try
         {
             AttachTokenIfNeeded();
+            // Note: Update API path if needed, assuming /api/project/paged exists
             var res = await Http.GetFromJsonAsync<PagedResult<ProjectListItemDto>>($"api/project/paged?page={page}&pageSize={pageSize}&q={Uri.EscapeDataString(search)}");
             if (res != null)
             {
@@ -221,18 +221,9 @@
         }
     }
 
-    void PreviousPage()
+    void OnSearchChanged(string value)
     {
-        if (page > 1) { page--; Refresh(); }
-    }
-
-    void NextPage()
-    {
-        if ((page)*pageSize < totalCount) { page++; Refresh(); }
-    }
-
-    void Refresh()
-    {
+        search = value;
         _ = LoadProjects();
     }
 
@@ -247,10 +238,4 @@
         public DateTime CreatedAt { get; set; }
         public DateTime? GeneratedAt { get; set; }
     }
-    void OnSearchChanged(string value)
-    {
-        search = value;
-        Refresh();
-    }
-
 }

@@ -376,4 +376,55 @@ public class UserService : IUserService
         var perms = await _uow.Repository<Permission>().Query().ToListAsync();
         return perms.Select(p => new PermissionSummaryDto(p.Id, p.Name, p.DisplayName, p.Category, p.Resource, p.Action, p.IsSystemPermission)).ToList();
     }
+
+    public async Task<List<PermissionSummaryDto>> GetRolePermissionsAsync(Guid roleId)
+    {
+        var role = await _uow.Repository<Role>().Query()
+            .Include(r => r.RolePermissions).ThenInclude(rp => rp.Permission)
+            .FirstOrDefaultAsync(r => r.Id == roleId);
+        
+        if (role == null) throw new Exception("Role not found");
+        
+        return role.RolePermissions.Select(rp => new PermissionSummaryDto(rp.Permission.Id, rp.Permission.Name, rp.Permission.DisplayName, rp.Permission.Category, rp.Permission.Resource, rp.Permission.Action, rp.Permission.IsSystemPermission)).ToList();
+    }
+
+    public async Task UpdateRolePermissionsAsync(Guid actingUserId, Guid roleId, List<Guid> permissionIds)
+    {
+        var repo = _uow.Repository<Domain.Entities.Security.RolePermission>();
+        var existing = await repo.Query().Where(x => x.RoleId == roleId).ToListAsync();
+        
+        foreach (var item in existing) repo.Remove(item);
+        foreach (var pid in permissionIds)
+        {
+            await repo.AddAsync(new Domain.Entities.Security.RolePermission { RoleId = roleId, PermissionId = pid });
+        }
+        await _uow.SaveChangesAsync();
+
+        // Audit
+        var audit = new Domain.Entities.Security.AuditLog
+        {
+            UserId = actingUserId,
+            EntityName = nameof(Role),
+            EntityId = roleId.ToString(),
+            Action = "PermissionsUpdated",
+            Changes = System.Text.Json.JsonSerializer.Serialize(new { permissionIds }),
+            Timestamp = DateTime.UtcNow,
+            Source = "API"
+        };
+        await _uow.Repository<Domain.Entities.Security.AuditLog>().AddAsync(audit);
+        await _uow.SaveChangesAsync();
+    }
+
+    public async Task<List<EndpointAccessDto>> GetAllEndpointsAsync()
+    {
+        var endpoints = await _uow.Repository<EndpointPermission>().Query().Include(e => e.RequiredPermission).ToListAsync();
+        return endpoints.Select(e => new EndpointAccessDto
+        {
+            Endpoint = e.EndpointPath,
+            Method = e.HttpMethod,
+            Description = e.Description ?? "",
+            PermissionId = e.RequiredPermissionId,
+            HasAccess = false // Not user specific
+        }).ToList();
+    }
 }

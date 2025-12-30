@@ -1,0 +1,30 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  ArchoCybo.SharedKernel -> D:\Projects\ArchoCybo\ArchoCybo.SharedKernel\bin\Debug\net10.0\ArchoCybo.SharedKernel.dll
+  ArchoCybo.Domain -> D:\Projects\ArchoCybo\ArchoCybo.Domain\bin\Debug\net10.0\ArchoCybo.Domain.dll
+  ArchoCybo.Application -> D:\Projects\ArchoCybo\ArchoCybo.Application\bin\Debug\net10.0\ArchoCybo.Application.dll
+  ArchoCybo.Infrastructure -> D:\Projects\ArchoCybo\ArchoCybo.Infrastructure\bin\Debug\net10.0\ArchoCybo.Infrastructure.dll
+  ArchoCybo.WebApi -> D:\Projects\ArchoCybo\ArchoCybo.WebApi\bin\Debug\net10.0\ArchoCybo.WebApi.dll
+D:\Projects\ArchoCybo\ArchoCybo\Pages\QueryBuilderAdvanced.razor(33,42): error RZ2005: The 'page' directive must appear at the start of the line. [D:\Projects\ArchoCybo\ArchoCybo\ArchoCybo.csproj]
+D:\Projects\ArchoCybo\ArchoCybo\Pages\QueryBuilderAdvanced.razor(33,47): error RZ1016: The 'page' directive expects a string surrounded by double quotes. [D:\Projects\ArchoCybo\ArchoCybo\ArchoCybo.csproj]
+D:\Projects\ArchoCybo\ArchoCybo\Shared\MainLayout.razor(182,9): warning CS4014: Because this call is not awaited, execution of the current method continues before the call is completed. Consider applying the 'await' operator to the result of the call. [D:\Projects\ArchoCybo\ArchoCybo\ArchoCybo.csproj]
+D:\Projects\ArchoCybo\ArchoCybo\Pages\Login.razor(88,26): warning CS0168: The variable 'ex' is declared but never used [D:\Projects\ArchoCybo\ArchoCybo\ArchoCybo.csproj]
+D:\Projects\ArchoCybo\ArchoCybo\Pages\ProjectDetail.razor(85,24): warning CS8601: Possible null reference assignment. [D:\Projects\ArchoCybo\ArchoCybo\ArchoCybo.csproj]
+D:\Projects\ArchoCybo\ArchoCybo\Pages\ProjectDetail.razor(97,23): warning CS8601: Possible null reference assignment. [D:\Projects\ArchoCybo\ArchoCybo\ArchoCybo.csproj]
+D:\Projects\ArchoCybo\ArchoCybo\Pages\Register.razor(109,26): warning CS0168: The variable 'ex' is declared but never used [D:\Projects\ArchoCybo\ArchoCybo\ArchoCybo.csproj]
+D:\Projects\ArchoCybo\ArchoCybo\Pages\SchemaDesigner.razor(131,26): warning CS0168: The variable 'ex' is declared but never used [D:\Projects\ArchoCybo\ArchoCybo\ArchoCybo.csproj]
+
+Build FAILED.
+
+D:\Projects\ArchoCybo\ArchoCybo\Shared\MainLayout.razor(182,9): warning CS4014: Because this call is not awaited, execution of the current method continues before the call is completed. Consider applying the 'await' operator to the result of the call. [D:\Projects\ArchoCybo\ArchoCybo\ArchoCybo.csproj]
+D:\Projects\ArchoCybo\ArchoCybo\Pages\Login.razor(88,26): warning CS0168: The variable 'ex' is declared but never used [D:\Projects\ArchoCybo\ArchoCybo\ArchoCybo.csproj]
+D:\Projects\ArchoCybo\ArchoCybo\Pages\ProjectDetail.razor(85,24): warning CS8601: Possible null reference assignment. [D:\Projects\ArchoCybo\ArchoCybo\ArchoCybo.csproj]
+D:\Projects\ArchoCybo\ArchoCybo\Pages\ProjectDetail.razor(97,23): warning CS8601: Possible null reference assignment. [D:\Projects\ArchoCybo\ArchoCybo\ArchoCybo.csproj]
+D:\Projects\ArchoCybo\ArchoCybo\Pages\Register.razor(109,26): warning CS0168: The variable 'ex' is declared but never used [D:\Projects\ArchoCybo\ArchoCybo\ArchoCybo.csproj]
+D:\Projects\ArchoCybo\ArchoCybo\Pages\SchemaDesigner.razor(131,26): warning CS0168: The variable 'ex' is declared but never used [D:\Projects\ArchoCybo\ArchoCybo\ArchoCybo.csproj]
+D:\Projects\ArchoCybo\ArchoCybo\Pages\QueryBuilderAdvanced.razor(33,42): error RZ2005: The 'page' directive must appear at the start of the line. [D:\Projects\ArchoCybo\ArchoCybo\ArchoCybo.csproj]
+D:\Projects\ArchoCybo\ArchoCybo\Pages\QueryBuilderAdvanced.razor(33,47): error RZ1016: The 'page' directive expects a string surrounded by double quotes. [D:\Projects\ArchoCybo\ArchoCybo\ArchoCybo.csproj]
+    6 Warning(s)
+    2 Error(s)
+
+Time Elapsed 00:00:07.11

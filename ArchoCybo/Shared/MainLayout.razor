@@ -9,7 +9,6 @@
 <MudDialogProvider />
 <MudSnackbarProvider />
 
-<CascadingAuthenticationState>
     <MudLayout>
         <MudAppBar Elevation="0" Color="Color.Transparent" Fixed="true" Class="mud-appbar-sliced px-4">
             <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())" Class="mr-2" />
@@ -73,7 +72,6 @@
             </MudContainer>
         </MudMainContent>
     </MudLayout>
-</CascadingAuthenticationState>
 
 <style>
     /* Sliced Theme Overrides */
