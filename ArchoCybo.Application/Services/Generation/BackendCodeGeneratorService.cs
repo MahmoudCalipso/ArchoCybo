@@ -59,7 +59,7 @@ public class BackendCodeGeneratorService
         }
 
         await GenerateCsprojFile(basePath, projectName);
-        await GenerateProgramCs(basePath, projectName);
+        await GenerateProgramCs(basePath, projectName, entities);
         await GenerateEntities(basePath, projectName, entities);
         await GenerateDTOs(basePath, projectName, entities, queries);
         await GenerateRepositories(basePath, projectName);
