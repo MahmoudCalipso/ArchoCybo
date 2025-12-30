@@ -13,6 +13,7 @@ using ArchoCybo.Domain.Common;
 using ArchoCybo.Domain.Entities.CodeGeneration;
 using ArchoCybo.Domain.Entities.Security;
 using ArchoCybo.Infrastructure.UnitOfWork;
+using Microsoft.Extensions.Http;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -27,19 +28,21 @@ builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 builder.Services.AddMudServices();
 
-builder.Services.AddScoped(sp =>
-{
-    var config = sp.GetRequiredService<IConfiguration>();
-    var apiBase = config["ApiBaseUrl"];
-    if (string.IsNullOrEmpty(apiBase))
-    {
-        var nav = sp.GetRequiredService<NavigationManager>();
-        apiBase = nav.BaseUri;
-    }
-    return new HttpClient { BaseAddress = new Uri(apiBase) };
-});
-
+// Register TokenMessageHandler and configure HttpClient to automatically attach token
 builder.Services.AddSingleton<TokenProvider>();
+builder.Services.AddTransient<TokenMessageHandler>();
+
+var apiBase = builder.Configuration["ApiBaseUrl"];
+if (string.IsNullOrEmpty(apiBase)) apiBase = builder.Configuration.GetValue<string>("BaseAddress") ?? "";
+
+builder.Services.AddHttpClient("ApiClient", client =>
+{
+    client.BaseAddress = string.IsNullOrEmpty(apiBase) ? new Uri(builder.Configuration.GetValue<string>("FrontendBaseUrl") ?? "http://localhost:5170") : new Uri(apiBase);
+}).AddHttpMessageHandler<TokenMessageHandler>();
+
+// Provide default HttpClient via factory so existing components injecting HttpClient work
+builder.Services.AddScoped(sp => sp.GetRequiredService<IHttpClientFactory>().CreateClient("ApiClient"));
+
 builder.Services.AddScoped<AuthStateProvider>();
 builder.Services.AddScoped<AuthenticationStateProvider>(provider => provider.GetRequiredService<AuthStateProvider>());
 builder.Services.AddScoped<CodeGenerationService>();
