@@ -20,6 +20,9 @@ builder.Services.AddDbContext<ArchoCyboDbContext>(options =>
     options.UseSqlServer(
         builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// Ensure DbContext base type can be resolved when repositories expect DbContext
+builder.Services.AddScoped<DbContext>(sp => sp.GetRequiredService<ArchoCyboDbContext>());
+
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 builder.Services.AddMudServices();

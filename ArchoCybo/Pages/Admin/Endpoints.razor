@@ -1,0 +1,91 @@
+@page "/admin/endpoints"
+@attribute [Authorize]
+@using System.Net.Http.Json
+@using MudBlazor
+@using ArchoCybo.Application.DTOs
+@using ArchoCybo.Shared.Dialogs
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject NavigationManager Nav
+@inject ArchoCybo.Services.TokenProvider TokenProvider
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudText Typo="Typo.h4">Endpoint Permissions</MudText>
+    <MudPaper Class="pa-4 mt-3">
+        <MudTable Items="endpoints" Dense="true" Hover="true">
+            <ToolBarContent>
+                <MudTextField Placeholder="Filter..." @bind-Value="filter" Immediate="true" Adornment="Adornment.Start" AdornmentIcon="Icons.Material.Filled.Search" />
+                <MudSpacer />
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Refresh">Refresh</MudButton>
+            </ToolBarContent>
+            <HeaderContent>
+                <MudTh>Method</MudTh>
+                <MudTh>Route</MudTh>
+                <MudTh>Permission</MudTh>
+                <MudTh>Public</MudTh>
+                <MudTh></MudTh>
+            </HeaderContent>
+            <RowTemplate Context="ep">
+                <MudTd>@ep.Method</MudTd>
+                <MudTd>@ep.Endpoint</MudTd>
+                <MudTd>@(ep.PermissionId.HasValue ? permissions.FirstOrDefault(p => p.Id == ep.PermissionId)?.DisplayName : "-")</MudTd>
+                <MudTd>@(ep.HasAccess ? "Yes" : "No")</MudTd>
+                <MudTd>
+                    <MudButton Size="Size.Small" OnClick="() => Edit(ep)">Edit</MudButton>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    string filter = string.Empty;
+    List<EndpointAccessDto> endpoints = new();
+    List<PermissionSummaryDto> permissions = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        AttachToken();
+        await LoadPermissions();
+        await LoadEndpoints();
+    }
+
+    void AttachToken()
+    {
+        if (!string.IsNullOrEmpty(TokenProvider.Token)) Http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", TokenProvider.Token);
+        else Http.DefaultRequestHeaders.Authorization = null;
+    }
+
+    async Task LoadPermissions()
+    {
+        try
+        {
+            permissions = await Http.GetFromJsonAsync<List<PermissionSummaryDto>>("api/Users/permissions") ?? new();
+        }
+        catch { }
+    }
+
+    async Task LoadEndpoints()
+    {
+        try
+        {
+            endpoints = await Http.GetFromJsonAsync<List<EndpointAccessDto>>("api/Users/endpoints/all") ?? new();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Failed to load endpoints: " + ex.Message, Severity.Error);
+            endpoints = new List<EndpointAccessDto>();
+        }
+    }
+
+    void Refresh() => _ = LoadEndpoints();
+
+    void Edit(EndpointAccessDto e)
+    {
+        var parameters = new DialogParameters { { "Endpoint", e.Endpoint }, { "Method", e.Method }, { "PermissionId", e.PermissionId } };
+        var options = new DialogOptions { MaxWidth = MaxWidth.Small, CloseButton = true };
+        var dlg = DialogService.Show<Shared.Dialogs.EditEndpointDialog>("Edit Endpoint", parameters, options);
+        _ = dlg.Result.ContinueWith(async t => { if (!t.IsFaulted && t.Result.Data is true) await LoadEndpoints(); });
+    }
+}

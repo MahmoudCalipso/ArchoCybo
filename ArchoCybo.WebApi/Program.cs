@@ -1,13 +1,9 @@
 using Microsoft.EntityFrameworkCore;
-using MediatR;
-using ArchoCybo.Application.Features.Auth;
 using ArchoCybo.Application.Interfaces.IServices;
 using ArchoCybo.Application.Services;
 using ArchoCybo.Infrastructure.Data;
 using ArchoCybo.Application.Interfaces.IServices.Background;
 using ArchoCybo.Application.Services.Background;
-using FluentValidation;
-using FluentValidation.AspNetCore;
 using ArchoCybo.WebApi.Hubs;
 using ArchoCybo.WebApi.Services;
 using ArchoCybo.Application.Services.Generation;
@@ -15,10 +11,7 @@ using ArchoCybo.Application.Services.CodeViewer;
 using ArchoCybo.Application.Interfaces;
 using ArchoCybo.Infrastructure.Repositories;
 using ArchoCybo.Infrastructure.UnitOfWork;
-using ArchoCybo.Domain.Common;
 using Hangfire;
-using Hangfire.SqlServer;
-using Microsoft.Extensions.DependencyInjection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.OpenApi.Models;
@@ -88,8 +81,11 @@ builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"))
 builder.Services.AddDbContext<ArchoCyboDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-builder.Services.AddScoped<ArchoCybo.Application.Interfaces.IUnitOfWork>(sp =>
-    new ArchoCybo.Infrastructure.UnitOfWork.UnitOfWork(sp.GetRequiredService<ArchoCyboDbContext>()));
+builder.Services.AddScoped<IUnitOfWork>(sp =>
+    new UnitOfWork(sp.GetRequiredService<ArchoCyboDbContext>()));
+
+// Ensure DbContext base type can be resolved when repositories or UnitOfWork expect DbContext
+builder.Services.AddScoped<DbContext>(sp => sp.GetRequiredService<ArchoCyboDbContext>());
 
 // Pulling values from your uploaded JSON
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "Default_Fallback_Key_32_Characters_Long";
